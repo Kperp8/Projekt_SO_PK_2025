@@ -9,11 +9,16 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+int ILE_SEMAFOROW = 5;
+int ILE_POCHODNYCH = 8;
+
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
-void cleanup();
+void cleanup(key_t key, key_t p_id[]);
 
 int maint(int argc, char **argv)
 {
+    key_t p_id[ILE_POCHODNYCH]; // tablica pid procesow potomnych
+    int n = -1;
     // tworzymy klucz
     key_t key = ftok("seed", 1);
     if (key == -1)
@@ -23,54 +28,69 @@ int maint(int argc, char **argv)
     }
     char key_str[5];
     sprintf(key_str, "%d", key);
+
     // tworzymy semafory
-    int sems = semget(key, 2, IPC_CREAT | 0666);
+    int sems = semget(key, ILE_SEMAFOROW, IPC_CREAT | 0666);
     if (sems == -1)
     {
         perror("main - semget");
-        // cleanup();
+        cleanup(key, p_id);
         exit(1);
     }
+
     // uruchamiamy proces dyrektor
-    pid_t p_id = fork();
+    p_id[++n] = fork();
     if (p_id == 0)
     {
         execl("/Procesy/dyrektor", "/Procesy/dyrektor", key_str, NULL);
         perror("main - execl dyrektor");
-        // cleanup();
+        cleanup(key, p_id);
         exit(1);
     }
+
     // uruchamiamy procesy Rejestracja
-    p_id = fork();
+    p_id[++n] = fork();
     if (p_id == 0)
     {
         execl("/Procesy/rejestr", "/Procesy/rejestr", key_str, NULL);
         perror("main - execl rejestr");
-        // cleanup();
+        cleanup(key, p_id);
         exit(1);
     }
+
     // uruchamiamy procesy urzednik
     for (int i = 0; i < 6; i++)
     {
-        p_id = fork();
+        p_id[++n] = fork();
         if (p_id == 0)
         {
             char u_id[2];
             i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
             execl("/Procesy/rejestr", "/Procesy/rejestr", key_str, u_id, NULL);
             perror("main - execl rejestr");
-            // cleanup();
+            cleanup(key, p_id);
             exit(1);
         }
     }
+
     // uruchamiamy procesy petent
-    p_id = fork();
+    p_id[++n] = fork();
     if (p_id == 0)
     {
         execl("/Procesy/generator", "/Procesy/generator", key_str, NULL);
         perror("main - execl generator");
-        // cleanup();
+        cleanup(key, p_id);
         exit(1);
     }
     return 0;
+}
+
+void cleanup(key_t key, key_t p_id[])
+{
+    int semid = semget(key, 0, 0);
+    if (semid != -1)
+        semctl(semid, 0, IPC_RMID);
+    // zamykamy procesy pochodne SIGINTem
+    for (int i = 0; i < ILE_POCHODNYCH; i++)
+        kill(p_id[i], SIGINT);
 }

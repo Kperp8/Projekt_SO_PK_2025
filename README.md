@@ -29,7 +29,7 @@ Proces podrzędny, który:
 
 ### `Generator petentów`
 Proces podrzędny, który:
-* Stara się generować procesy `Petent` do osiągnięcia limitu;
+* Stara się generować procesy `Petent` do osiągnięcia limitu `N`;
 
 ## Omówienie działania symulacji
 W budynku urzędu miasta znajdują się następujące wydziały/urzędy:
