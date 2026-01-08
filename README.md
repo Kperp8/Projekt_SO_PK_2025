@@ -27,6 +27,10 @@ Proces podrzędny, który:
 * *Próbuje* zostać obsłużony przez odpowiedni proces `Urzędnik`;
 * Obsługuje sygnały wysyłane przez proces `Dyrektor`;
 
+### `Generator petentów`
+Proces podrzędny, który:
+* Stara się generować procesy `Petent` do osiągnięcia limitu `N`;
+
 ## Omówienie działania symulacji
 W budynku urzędu miasta znajdują się następujące wydziały/urzędy:
 * Urząd Stanu Cywilnego - `SC`
