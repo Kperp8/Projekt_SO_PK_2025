@@ -15,18 +15,18 @@ int ILE_POCHODNYCH = 8;
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
 void cleanup(key_t key, key_t p_id[]);
 
-int maint(int argc, char **argv)
+int main(int argc, char **argv)
 {
     key_t p_id[ILE_POCHODNYCH]; // tablica pid procesow potomnych
     int n = -1;
     // tworzymy klucz
-    key_t key = ftok("seed", 1);
+    key_t key = ftok(".", 1);
     if (key == -1)
     {
         perror("main - ftok");
         exit(1);
     }
-    char key_str[5];
+    char key_str[20];
     sprintf(key_str, "%d", key);
 
     // tworzymy semafory
@@ -40,9 +40,9 @@ int maint(int argc, char **argv)
 
     // uruchamiamy proces dyrektor
     p_id[++n] = fork();
-    if (p_id == 0)
+    if (p_id[n] == 0)
     {
-        execl("/Procesy/dyrektor", "/Procesy/dyrektor", key_str, NULL);
+        execl("./Procesy/dyrektor", "./Procesy/dyrektor", key_str, NULL);
         perror("main - execl dyrektor");
         cleanup(key, p_id);
         exit(1);
@@ -50,9 +50,9 @@ int maint(int argc, char **argv)
 
     // uruchamiamy procesy Rejestracja
     p_id[++n] = fork();
-    if (p_id == 0)
+    if (p_id[n] == 0)
     {
-        execl("/Procesy/rejestr", "/Procesy/rejestr", key_str, NULL);
+        execl("./Procesy/rejestr", "./Procesy/rejestr", key_str, NULL);
         perror("main - execl rejestr");
         cleanup(key, p_id);
         exit(1);
@@ -62,12 +62,12 @@ int maint(int argc, char **argv)
     for (int i = 0; i < 6; i++)
     {
         p_id[++n] = fork();
-        if (p_id == 0)
+        if (p_id[n] == 0)
         {
             char u_id[2];
             i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
-            execl("/Procesy/rejestr", "/Procesy/rejestr", key_str, u_id, NULL);
-            perror("main - execl rejestr");
+            execl("./Procesy/urzednik", "./Procesy/urzednik", key_str, u_id, NULL);
+            perror("main - execl urzednik");
             cleanup(key, p_id);
             exit(1);
         }
@@ -75,13 +75,19 @@ int maint(int argc, char **argv)
 
     // uruchamiamy procesy petent
     p_id[++n] = fork();
-    if (p_id == 0)
+    if (p_id[n] == 0)
     {
-        execl("/Procesy/generator", "/Procesy/generator", key_str, NULL);
+        execl("./Procesy/generator", "./Procesy/generator", key_str, NULL);
         perror("main - execl generator");
         cleanup(key, p_id);
         exit(1);
     }
+
+    for (int i = 0; i < ILE_POCHODNYCH; i++)
+        waitpid(p_id[i], NULL, 0);
+
+    cleanup(key, p_id); // TODO usunac
+
     return 0;
 }
 
