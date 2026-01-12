@@ -11,10 +11,10 @@
 
 // TODO: wysyłanie sygnałów do procesów
 
-int ILE_SEMAFOROW = 8;
-int SEMAFOR_MAIN = 0;
-int SEMAFOR_DYREKTOR = 1;
-int ILE_POCHODNYCH = 8;
+#define ILE_SEMAFOROW 8
+#define SEMAFOR_MAIN 0
+#define SEMAFOR_DYREKTOR 1
+#define ILE_POCHODNYCH 8
 
 void cleanup(key_t key, key_t p_id[]);
 
@@ -27,7 +27,7 @@ union semun
 
 int main(int argc, char **argv)
 {
-    printf("dyrektor online\n");
+    printf("dyrektor\n");
     key_t key = atoi(argv[1]); // odbieramy klucz
     key_t p_id[ILE_POCHODNYCH];
 
@@ -38,7 +38,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t) * ILE_POCHODNYCH, 0); // pamiec
+    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
     if (shm_id == -1)
     {
         perror("dyrektor shmget");
@@ -52,11 +52,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_MAIN, .sem_op = +1, .sem_flg = 0};
+
     for (int i = 0; i < ILE_POCHODNYCH; i++) // odbieramy p_id[]
     {
-        struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
-        struct sembuf V = {.sem_num = SEMAFOR_MAIN, .sem_op = +1, .sem_flg = 0};
-
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
@@ -84,6 +84,10 @@ int main(int argc, char **argv)
 
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
+
+    printf("dyrektor otrzymal:\n");
+    for (int i = 0; i < ILE_POCHODNYCH; i++)
+        printf("%d\n", p_id[i]);
 
     cleanup(key, p_id);
 

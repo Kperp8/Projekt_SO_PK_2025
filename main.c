@@ -9,10 +9,13 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-int ILE_SEMAFOROW = 8; // po jednym dla main, dyrektor, każdego urzędnika
-int SEMAFOR_MAIN = 0;
-int SEMAFOR_DYREKTOR = 1;
-int ILE_POCHODNYCH = 8;
+#define ILE_SEMAFOROW 8 // po jednym dla main, dyrektor, każdego urzędnika
+#define SEMAFOR_MAIN 0
+#define SEMAFOR_DYREKTOR 1
+#define ILE_POCHODNYCH 8
+
+key_t p_id[ILE_POCHODNYCH]; // tablica pid procesow potomnych
+key_t key;
 
 union semun
 {
@@ -22,14 +25,17 @@ union semun
 };
 
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
-void cleanup(key_t key, key_t p_id[]);
+void cleanup();
+
+void SIGINT_handle(int sig);
 
 int main(int argc, char **argv)
 {
-    key_t p_id[ILE_POCHODNYCH]; // tablica pid procesow potomnych
+    signal(SIGINT, SIGINT_handle);
+
     int n = -1;
     // tworzymy klucz
-    key_t key = ftok(".", 1);
+    key = ftok(".", 1);
     if (key == -1)
     {
         perror("main - ftok");
@@ -43,7 +49,7 @@ int main(int argc, char **argv)
     if (sems == -1)
     {
         perror("main - semget");
-        cleanup(key, p_id);
+        cleanup();
         exit(1);
     }
 
@@ -52,7 +58,7 @@ int main(int argc, char **argv)
     if (shmid == -1)
     {
         perror("semget");
-        cleanup(key, p_id);
+        cleanup();
         exit(1);
     }
 
@@ -62,7 +68,7 @@ int main(int argc, char **argv)
     {
         execl("./Procesy/rejestr", "./Procesy/rejestr", key_str, NULL);
         perror("main - execl rejestr");
-        cleanup(key, p_id);
+        cleanup();
         exit(1);
     }
 
@@ -76,7 +82,7 @@ int main(int argc, char **argv)
             i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
             execl("./Procesy/urzednik", "./Procesy/urzednik", key_str, u_id, NULL);
             perror("main - execl urzednik");
-            cleanup(key, p_id);
+            cleanup();
             exit(1);
         }
     }
@@ -85,9 +91,9 @@ int main(int argc, char **argv)
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
-        execl("./Procesy/generator", "./Procesy/generator", key_str, NULL);
+        execl("./Procesy/generator_petent", "./Procesy/generator_petent", key_str, NULL);
         perror("main - execl generator");
-        cleanup(key, p_id);
+        cleanup();
         exit(1);
     }
 
@@ -97,7 +103,7 @@ int main(int argc, char **argv)
     {
         execl("./Procesy/dyrektor", "./Procesy/dyrektor", key_str, NULL); // TODO: prześlij p_id[]
         perror("main - execl dyrektor");
-        cleanup(key, p_id);
+        cleanup();
         exit(1);
     }
 
@@ -106,7 +112,7 @@ int main(int argc, char **argv)
     if (shared_mem == (key_t *)-1)
     {
         perror("main shmat");
-        cleanup(key, p_id);
+        cleanup();
         exit(1);
     }
 
@@ -122,7 +128,7 @@ int main(int argc, char **argv)
             else
             {
                 perror("main semop P");
-                cleanup(key, p_id);
+                cleanup();
                 exit(1);
             }
         }
@@ -135,8 +141,8 @@ int main(int argc, char **argv)
                 continue;
             else
             {
-                perror("semop V");
-                cleanup(key, p_id);
+                perror("main semop V");
+                cleanup();
                 exit(1);
             }
         }
@@ -147,12 +153,12 @@ int main(int argc, char **argv)
     for (int i = 0; i < ILE_POCHODNYCH; i++)
         waitpid(p_id[i], NULL, 0);
 
-    cleanup(key, p_id);
+    cleanup();
 
     return 0;
 }
 
-void cleanup(key_t key, key_t p_id[])
+void cleanup()
 {
     int semid = semget(key, 0, 0);
     if (semid != -1)
@@ -164,4 +170,11 @@ void cleanup(key_t key, key_t p_id[])
     int shmid = shmget(key, sizeof(key_t), 0);
     if (shmid != -1)
         shmctl(shmid, IPC_RMID, NULL);
+}
+
+void SIGINT_handle(int sig)
+{
+    printf("\nprzechwycono SIGINT\n");
+    cleanup();
+    exit(0);
 }
