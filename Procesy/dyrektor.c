@@ -90,9 +90,15 @@ int main(int argc, char **argv)
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
 
-    printf("dyrektor otrzymal:\n");
+    printf("dyrektor otrzymal i wysyla sygnaly 1 i 2:\n");
     for (int i = 0; i < ILE_POCHODNYCH; i++)
+    {
         printf("%d\n", p_id[i]);
+        kill(p_id[i], SIGUSR1);
+        kill(p_id[i], SIGUSR2);
+    }
+
+    sleep(10);
 
     cleanup();
 

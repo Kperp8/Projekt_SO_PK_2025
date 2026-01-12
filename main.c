@@ -156,10 +156,10 @@ int main(int argc, char **argv)
 
     shmdt(shared_mem);
 
-    for (int i = 0; i < ILE_POCHODNYCH; i++)
-        waitpid(p_id[i], NULL, 0);
+    // for (int i = 0; i < ILE_POCHODNYCH; i++)
+        // waitpid(p_id[i], NULL, 0);
 
-    cleanup();
+    // cleanup();
 
     return 0;
 }
