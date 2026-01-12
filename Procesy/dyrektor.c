@@ -9,12 +9,16 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-// TODO: wysyłanie sygnałów do procesów
+// TODO: deklaracja zmiennych, przesyłanie ich do odpowiednich procesów
+// TODO: użyć pipe() do przesłania zmiennych
 
 #define ILE_SEMAFOROW 8
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define ILE_POCHODNYCH 8
+
+time_t Tp, Tk;
+int N, K; // do generator, rejestr
 
 key_t key;
 key_t p_id[ILE_POCHODNYCH];
