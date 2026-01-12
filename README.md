@@ -8,7 +8,7 @@ Projekt jest ***symulacją*** działania budynku urzędu miasta Kraków, gdzie u
 ### `Dyrektor`
 Proces nadrzędny, który:
 * Definiuje wartości `Tp`, `Tk`, `N`, `K`;
-* Tworzy  i nadzoruje pracę pozostałych procesów;
+* Nadzoruje pracę pozostałych procesów;
 * Wysyła `sygnały 1 i 2`;
 
 ### `Rejestracja`
