@@ -9,8 +9,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-// TODO: odbieranie p_id[] przez pamiec wspoldzielona
-// TODO: cleanup(), w normalnym workflow to on bedzie usuwal semafory
 // TODO: wysyłanie sygnałów do procesów
 
 int ILE_SEMAFOROW = 8;
@@ -97,8 +95,9 @@ void cleanup(key_t key, key_t p_id[])
     int semid = semget(key, 0, 0);
     if (semid != -1)
         semctl(semid, 0, IPC_RMID);
-    // zamykamy procesy SIGINTem
     for (int i = 0; i < ILE_POCHODNYCH; i++)
         kill(p_id[i], SIGINT);
-    // TODO: usuniecie pamieci dzielonej
+    int shmid = shmget(key, sizeof(key_t), 0);
+    if (shmid != -1)
+        shmctl(shmid, IPC_RMID, NULL);
 }

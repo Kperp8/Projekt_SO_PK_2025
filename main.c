@@ -14,6 +14,13 @@ int SEMAFOR_MAIN = 0;
 int SEMAFOR_DYREKTOR = 1;
 int ILE_POCHODNYCH = 8;
 
+union semun
+{
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+};
+
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
 void cleanup(key_t key, key_t p_id[]);
 
@@ -36,6 +43,15 @@ int main(int argc, char **argv)
     if (sems == -1)
     {
         perror("main - semget");
+        cleanup(key, p_id);
+        exit(1);
+    }
+
+    // tworzymy pamiec dzieloną dla dyrektora
+    int shmid = shmget(key, sizeof(key_t), IPC_CREAT | 0666);
+    if (shmid == -1)
+    {
+        perror("semget");
         cleanup(key, p_id);
         exit(1);
     }
@@ -85,6 +101,49 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    // wysyłamy p_id do dyrektora
+    key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
+    if (shared_mem == (key_t *)-1)
+    {
+        perror("main shmat");
+        cleanup(key, p_id);
+        exit(1);
+    }
+
+    // wysyłamy
+    struct sembuf P = {.sem_num = SEMAFOR_MAIN, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
+    for (int i = 0; i < ILE_POCHODNYCH; i++)
+    {
+        while (semop(sems, &P, 1) == -1)
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("main semop P");
+                cleanup(key, p_id);
+                exit(1);
+            }
+        }
+
+        *shared_mem = p_id[i];
+
+        while (semop(sems, &V, 1) == -1)
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("semop V");
+                cleanup(key, p_id);
+                exit(1);
+            }
+        }
+    }
+
+    shmdt(shared_mem);
+
     for (int i = 0; i < ILE_POCHODNYCH; i++)
         waitpid(p_id[i], NULL, 0);
 
@@ -101,5 +160,8 @@ void cleanup(key_t key, key_t p_id[])
     // zamykamy procesy pochodne SIGINTem
     for (int i = 0; i < ILE_POCHODNYCH; i++)
         kill(p_id[i], SIGINT);
-    // TODO: usuniecie pamieci dzielonej
+    // usuwamy dzieloną pamięć
+    int shmid = shmget(key, sizeof(key_t), 0);
+    if (shmid != -1)
+        shmctl(shmid, IPC_RMID, NULL);
 }
