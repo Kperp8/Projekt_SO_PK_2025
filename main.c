@@ -117,6 +117,12 @@ int main(int argc, char **argv)
     }
 
     // wysyłamy
+    if (semctl(sems, 0, SETVAL, 1) == -1)
+    {
+        perror("main semctl");
+        cleanup();
+        exit(1);
+    }
     struct sembuf P = {.sem_num = SEMAFOR_MAIN, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
     for (int i = 0; i < ILE_POCHODNYCH; i++)
