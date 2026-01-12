@@ -16,7 +16,8 @@
 #define SEMAFOR_DYREKTOR 1
 #define ILE_POCHODNYCH 8
 
-void cleanup(key_t key, key_t p_id[]);
+key_t key;
+key_t p_id[ILE_POCHODNYCH];
 
 union semun
 {
@@ -25,11 +26,15 @@ union semun
     unsigned short *array;
 };
 
+void cleanup();
+void SIGINT_handle(int sig);
+
 int main(int argc, char **argv)
 {
+    signal(SIGINT, SIGINT_handle);
+
     printf("dyrektor\n");
-    key_t key = atoi(argv[1]); // odbieramy klucz
-    key_t p_id[ILE_POCHODNYCH];
+    key = atoi(argv[1]); // odbieramy klucz
 
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
@@ -89,19 +94,31 @@ int main(int argc, char **argv)
     for (int i = 0; i < ILE_POCHODNYCH; i++)
         printf("%d\n", p_id[i]);
 
-    cleanup(key, p_id);
+    cleanup();
 
     return 0;
 }
 
-void cleanup(key_t key, key_t p_id[])
+void cleanup()
 {
     int semid = semget(key, 0, 0);
     if (semid != -1)
         semctl(semid, 0, IPC_RMID);
-    for (int i = 0; i < ILE_POCHODNYCH; i++)
-        kill(p_id[i], SIGINT);
     int shmid = shmget(key, sizeof(key_t), 0);
     if (shmid != -1)
+    {
+        key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
+        if (shmdt(shared_mem) != 0)
+            perror("dyrektor shmdt");
         shmctl(shmid, IPC_RMID, NULL);
+    }
+    for (int i = 0; i < ILE_POCHODNYCH; i++)
+        kill(p_id[i], SIGINT);
+}
+
+void SIGINT_handle(int sig)
+{
+    printf("\nprzechwycono SIGINT\n");
+    cleanup();
+    exit(0);
 }

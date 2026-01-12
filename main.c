@@ -57,7 +57,7 @@ int main(int argc, char **argv)
     int shmid = shmget(key, sizeof(key_t), IPC_CREAT | 0666);
     if (shmid == -1)
     {
-        perror("semget");
+        perror("main shmget");
         cleanup();
         exit(1);
     }
@@ -163,13 +163,13 @@ void cleanup()
     int semid = semget(key, 0, 0);
     if (semid != -1)
         semctl(semid, 0, IPC_RMID);
-    // zamykamy procesy pochodne SIGINTem
-    for (int i = 0; i < ILE_POCHODNYCH; i++)
-        kill(p_id[i], SIGINT);
     // usuwamy dzieloną pamięć
     int shmid = shmget(key, sizeof(key_t), 0);
     if (shmid != -1)
         shmctl(shmid, IPC_RMID, NULL);
+    // zamykamy procesy pochodne SIGINTem
+    for (int i = 0; i < ILE_POCHODNYCH; i++)
+        kill(p_id[i], SIGINT);
 }
 
 void SIGINT_handle(int sig)
