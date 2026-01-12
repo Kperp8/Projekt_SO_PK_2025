@@ -9,7 +9,9 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-int ILE_SEMAFOROW = 5;
+int ILE_SEMAFOROW = 8; // po jednym dla main, dyrektor, każdego urzędnika
+int SEMAFOR_MAIN = 0;
+int SEMAFOR_DYREKTOR = 1;
 int ILE_POCHODNYCH = 8;
 
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
@@ -34,16 +36,6 @@ int main(int argc, char **argv)
     if (sems == -1)
     {
         perror("main - semget");
-        cleanup(key, p_id);
-        exit(1);
-    }
-
-    // uruchamiamy proces dyrektor
-    p_id[++n] = fork();
-    if (p_id[n] == 0)
-    {
-        execl("./Procesy/dyrektor", "./Procesy/dyrektor", key_str, NULL);
-        perror("main - execl dyrektor");
         cleanup(key, p_id);
         exit(1);
     }
@@ -83,10 +75,20 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    // uruchamiamy proces dyrektor
+    p_id[++n] = fork();
+    if (p_id[n] == 0)
+    {
+        execl("./Procesy/dyrektor", "./Procesy/dyrektor", key_str, NULL); // TODO: prześlij p_id[]
+        perror("main - execl dyrektor");
+        cleanup(key, p_id);
+        exit(1);
+    }
+
     for (int i = 0; i < ILE_POCHODNYCH; i++)
         waitpid(p_id[i], NULL, 0);
 
-    cleanup(key, p_id); // TODO usunac
+    cleanup(key, p_id);
 
     return 0;
 }
@@ -99,4 +101,5 @@ void cleanup(key_t key, key_t p_id[])
     // zamykamy procesy pochodne SIGINTem
     for (int i = 0; i < ILE_POCHODNYCH; i++)
         kill(p_id[i], SIGINT);
+    // TODO: usuniecie pamieci dzielonej
 }
