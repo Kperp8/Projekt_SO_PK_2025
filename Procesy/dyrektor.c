@@ -145,6 +145,7 @@ int recieve_main(int sems, key_t *shared_mem)
             }
         }
     }
+    return 0;
 }
 
 int send_generator(int sems, key_t *shared_mem)
@@ -182,6 +183,7 @@ int send_generator(int sems, key_t *shared_mem)
             }
         }
     }
+    return 0;
 }
 
 int send_rejestr(int sems, key_t *shared_mem)
@@ -229,4 +231,5 @@ int send_rejestr(int sems, key_t *shared_mem)
             }
         }
     }
+    return 0;
 }
