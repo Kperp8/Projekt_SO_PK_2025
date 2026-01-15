@@ -14,6 +14,12 @@
 #define SEMAFOR_DYREKTOR 1
 #define ILE_PROCESOW 8
 
+/*
+0-4: urzednicy
+5: rejestr
+6: generator
+7: dyrektor
+*/
 key_t p_id[ILE_PROCESOW]; // tablica pid procesow potomnych
 key_t key;
 
@@ -62,16 +68,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    // uruchamiamy procesy Rejestracja
-    p_id[++n] = fork();
-    if (p_id[n] == 0)
-    {
-        execl("./Procesy/rejestr", "./Procesy/rejestr", key_str, NULL);
-        perror("main - execl rejestr");
-        cleanup();
-        exit(1);
-    }
-
     // uruchamiamy procesy urzednik
     for (int i = 0; i < 6; i++)
     {
@@ -87,7 +83,17 @@ int main(int argc, char **argv)
         }
     }
 
-    // uruchamiamy procesy petent
+    // uruchamiamy procesy Rejestracja
+    p_id[++n] = fork();
+    if (p_id[n] == 0)
+    {
+        execl("./Procesy/rejestr", "./Procesy/rejestr", key_str, NULL);
+        perror("main - execl rejestr");
+        cleanup();
+        exit(1);
+    }
+
+    // uruchamiamy proces generator
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
@@ -157,7 +163,7 @@ int main(int argc, char **argv)
     shmdt(shared_mem);
 
     // for (int i = 0; i < ILE_PROCESOW; i++)
-        // waitpid(p_id[i], NULL, 0);
+    // waitpid(p_id[i], NULL, 0);
 
     // cleanup();
 

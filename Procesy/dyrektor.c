@@ -10,11 +10,14 @@
 #include <sys/wait.h>
 
 // TODO: deklaracja zmiennych, przesyłanie ich do odpowiednich procesów
-// TODO: przesłać N do generatora, przesłać N i K do rejestru
+// TODO: przesłać N i K do rejestru
+// TODO: przesłać pidy urzednikow do rejestru
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
+#define SEMAFOR_GENERATOR 2
+#define SEMAFOR_REJESTR 3
 #define ILE_PROCESOW 8
 
 time_t Tp, Tk;
@@ -33,8 +36,8 @@ union semun
 void cleanup();
 void SIGINT_handle(int sig);
 int recieve_main(int sems, key_t *shared_mem);
-int send_generator();
-int send_rejestr();
+int send_generator(int sems, key_t *shared_mem);
+int send_rejestr(int sems, key_t *shared_mem);
 
 int main(int argc, char **argv)
 {
@@ -139,6 +142,90 @@ int recieve_main(int sems, key_t *shared_mem)
             {
                 perror("dyrektor semop V");
                 return 1;
+            }
+        }
+    }
+}
+
+int send_generator(int sems, key_t *shared_mem)
+{
+    // idea - mamy jeden adres pamieci
+    // dyrektor zmienia semafory procesow, ktore chce aby z niego akurat czytaly
+    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
+
+    for (int i = 0; i < 2; i++) // odbieramy p_id[]
+    {
+        while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("main semop P");
+                cleanup();
+                exit(1);
+            }
+        }
+
+        *shared_mem = i == 0 ? p_id[5] : N;
+
+        while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("main semop V");
+                cleanup();
+                exit(1);
+            }
+        }
+    }
+}
+
+int send_rejestr(int sems, key_t *shared_mem)
+{
+    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
+
+    for (int i = 0; i < 7; i++) // odbieramy p_id[]
+    {
+        while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("main semop P");
+                cleanup();
+                exit(1);
+            }
+        }
+
+        switch (i)
+        {
+        case 5:
+            *shared_mem = K;
+            break;
+        case 6:
+            *shared_mem = N;
+            break;
+
+        default:
+            *shared_mem = p_id[i];
+            break;
+        }
+
+        while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("main semop V");
+                cleanup();
+                exit(1);
             }
         }
     }
