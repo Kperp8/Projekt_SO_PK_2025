@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 {
     signal(SIGUSR1, SIGUSR1_handle);
     signal(SIGUSR2, SIGUSR2_handle);
-    printf("generator\n");
+    // printf("generator\n");
     sleep(10);
     return 0;
 }

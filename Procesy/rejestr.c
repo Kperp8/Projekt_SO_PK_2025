@@ -9,6 +9,8 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+// bedzie można użyć pipe() przy tworzeniu kolejnych rejestrów
+
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 
