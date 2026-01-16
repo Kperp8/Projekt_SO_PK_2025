@@ -9,12 +9,18 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-#define ILE_SEMAFOROW 8 // po jednym dla main, dyrektor, każdego urzędnika
+#define ILE_SEMAFOROW 9 // po jednym dla main, dyrektor, rejestr, każdego urzędnika
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
-#define ILE_POCHODNYCH 8
+#define ILE_PROCESOW 8
 
-key_t p_id[ILE_POCHODNYCH]; // tablica pid procesow potomnych
+/*
+0-4: urzednicy
+5: rejestr
+6: generator
+7: dyrektor
+*/
+key_t p_id[ILE_PROCESOW]; // tablica pid procesow potomnych
 key_t key;
 
 union semun
@@ -36,6 +42,7 @@ int main(int argc, char **argv)
     int n = -1;
     // tworzymy klucz
     key = ftok(".", 1);
+    // printf("key - %d\n", key);
     if (key == -1)
     {
         perror("main - ftok");
@@ -62,6 +69,21 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    // uruchamiamy procesy urzednik
+    for (int i = 0; i < 6; i++)
+    {
+        p_id[++n] = fork();
+        if (p_id[n] == 0)
+        {
+            char u_id[2]; // dodatkowy identyfikator rodzaju urzednika
+            i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
+            execl("./Procesy/urzednik", "./Procesy/urzednik", key_str, u_id, NULL);
+            perror("main - execl urzednik");
+            cleanup();
+            exit(1);
+        }
+    }
+
     // uruchamiamy procesy Rejestracja
     p_id[++n] = fork();
     if (p_id[n] == 0)
@@ -72,22 +94,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    // uruchamiamy procesy urzednik
-    for (int i = 0; i < 6; i++)
-    {
-        p_id[++n] = fork();
-        if (p_id[n] == 0)
-        {
-            char u_id[2];
-            i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
-            execl("./Procesy/urzednik", "./Procesy/urzednik", key_str, u_id, NULL);
-            perror("main - execl urzednik");
-            cleanup();
-            exit(1);
-        }
-    }
-
-    // uruchamiamy procesy petent
+    // uruchamiamy proces generator
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
@@ -117,7 +124,17 @@ int main(int argc, char **argv)
     }
 
     // wysyłamy
-    if (semctl(sems, 0, SETVAL, 1) == -1)
+    // printf("main - wysyla\n");
+    union semun arg;
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_MAIN, SETVAL, arg) == -1)
+    {
+        perror("main semctl");
+        cleanup();
+        exit(1);
+    }
+    arg.val = 0;
+    if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
     {
         perror("main semctl");
         cleanup();
@@ -125,7 +142,7 @@ int main(int argc, char **argv)
     }
     struct sembuf P = {.sem_num = SEMAFOR_MAIN, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
-    for (int i = 0; i < ILE_POCHODNYCH; i++)
+    for (int i = 0; i < ILE_PROCESOW; i++)
     {
         while (semop(sems, &P, 1) == -1)
         {
@@ -156,8 +173,8 @@ int main(int argc, char **argv)
 
     shmdt(shared_mem);
 
-    // for (int i = 0; i < ILE_POCHODNYCH; i++)
-        // waitpid(p_id[i], NULL, 0);
+    // for (int i = 0; i < ILE_PROCESOW; i++)
+    // waitpid(p_id[i], NULL, 0);
 
     // cleanup();
 
@@ -174,7 +191,7 @@ void cleanup()
     if (shmid != -1)
         shmctl(shmid, IPC_RMID, NULL);
     // zamykamy procesy pochodne SIGINTem
-    for (int i = 0; i < ILE_POCHODNYCH; i++)
+    for (int i = 0; i < ILE_PROCESOW; i++)
         kill(p_id[i], SIGINT);
 }
 

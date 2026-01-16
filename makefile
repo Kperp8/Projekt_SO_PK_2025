@@ -1,6 +1,6 @@
 # Makefile dla main.c i programów w katalogu Procesy
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11
+CFLAGS = -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=200809L
 
 # Plik main.c
 MAIN_SRC = main.c

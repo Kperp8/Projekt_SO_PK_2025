@@ -10,18 +10,21 @@
 #include <sys/wait.h>
 
 // TODO: deklaracja zmiennych, przesyłanie ich do odpowiednich procesów
-// TODO: użyć pipe() do przesłania zmiennych
+// TODO: przesłać N i K do rejestru
+// TODO: przesłać pidy urzednikow do rejestru
 
-#define ILE_SEMAFOROW 8
+#define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
-#define ILE_POCHODNYCH 8
+#define SEMAFOR_GENERATOR 2
+#define SEMAFOR_REJESTR 3
+#define ILE_PROCESOW 8
 
 time_t Tp, Tk;
-int N, K; // do generator, rejestr
+int N = 27, K = 9; // do generator, rejestr
 
 key_t key;
-key_t p_id[ILE_POCHODNYCH];
+key_t p_id[ILE_PROCESOW];
 
 union semun
 {
@@ -32,18 +35,22 @@ union semun
 
 void cleanup();
 void SIGINT_handle(int sig);
+int recieve_main(int sems, key_t *shared_mem);
+int send_generator(int sems, key_t *shared_mem);
+int send_rejestr(int sems, key_t *shared_mem);
 
 int main(int argc, char **argv)
 {
     signal(SIGINT, SIGINT_handle);
 
-    printf("dyrektor\n");
     key = atoi(argv[1]); // odbieramy klucz
+    printf("dyrektor\n");
 
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
     {
         perror("dyrektor semget");
+        cleanup();
         exit(1);
     }
 
@@ -51,6 +58,7 @@ int main(int argc, char **argv)
     if (shm_id == -1)
     {
         perror("dyrektor shmget");
+        cleanup();
         exit(1);
     }
 
@@ -58,51 +66,45 @@ int main(int argc, char **argv)
     if (shared_mem == (key_t *)-1)
     {
         perror("dyrektor shmat");
+        cleanup();
         exit(1);
     }
 
-    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
-    struct sembuf V = {.sem_num = SEMAFOR_MAIN, .sem_op = +1, .sem_flg = 0};
-
-    for (int i = 0; i < ILE_POCHODNYCH; i++) // odbieramy p_id[]
+    // printf("dyrektor odbiera od main\n");
+    if (recieve_main(sems, shared_mem) != 0)
     {
-        while (semop(sems, &P, 1) == -1)
-        {
-            if (errno == EINTR)
-                continue;
-            else
-            {
-                perror("dyrektor semop P");
-                exit(1);
-            }
-        }
-
-        p_id[i] = *shared_mem;
-
-        while (semop(sems, &V, 1) == -1)
-        {
-            if (errno == EINTR)
-                continue;
-            else
-            {
-                perror("dyrektor semop V");
-                exit(1);
-            }
-        }
+        perror("dyrektor recieve_main");
+        cleanup();
+        exit(1);
     }
+    // printf("dyrektor odebral pidy\n");
+
+    // printf("dyrektor otrzymal:\n");
+    // for (int i = 0; i < ILE_PROCESOW; i++)
+    // {
+    //     printf("%d\n", p_id[i]);
+    //     // kill(p_id[i], SIGUSR1);
+    //     // kill(p_id[i], SIGUSR2);
+    // }
+
+    printf("dyrektor - test przesylu\n");
+    if (send_generator(sems, shared_mem) != 0)
+    {
+        perror("dyrektor send_generator");
+        cleanup();
+        exit(1);
+    }
+
+    if (send_rejestr(sems, shared_mem) != 0)
+    {
+        perror("dyrektor send_rejestr");
+        cleanup();
+        exit(1);
+    }
+    printf("przeslano\n");
 
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
-
-    printf("dyrektor otrzymal i wysyla sygnaly 1 i 2:\n");
-    for (int i = 0; i < ILE_POCHODNYCH; i++)
-    {
-        printf("%d\n", p_id[i]);
-        kill(p_id[i], SIGUSR1);
-        kill(p_id[i], SIGUSR2);
-    }
-
-    sleep(10);
 
     cleanup();
 
@@ -122,7 +124,7 @@ void cleanup()
             perror("dyrektor shmdt");
         shmctl(shmid, IPC_RMID, NULL);
     }
-    for (int i = 0; i < ILE_POCHODNYCH; i++)
+    for (int i = 0; i < ILE_PROCESOW; i++)
         kill(p_id[i], SIGINT);
 }
 
@@ -131,4 +133,134 @@ void SIGINT_handle(int sig)
     printf("\nprzechwycono SIGINT\n");
     cleanup();
     exit(0);
+}
+
+int recieve_main(int sems, key_t *shared_mem)
+{
+    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_MAIN, .sem_op = +1, .sem_flg = 0};
+
+    for (int i = 0; i < ILE_PROCESOW; i++) // odbieramy p_id[]
+    {
+        while (semop(sems, &P, 1) == -1)
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("dyrektor semop P");
+                return 1;
+            }
+        }
+
+        p_id[i] = *shared_mem;
+
+        while (semop(sems, &V, 1) == -1)
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("dyrektor semop V");
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+int send_generator(int sems, key_t *shared_mem)
+{
+    union semun arg;
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
+    {
+        perror("dyrektor semctl");
+        return 1;
+    }
+    arg.val = 0;
+    if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
+    {
+        perror("dyrektor semctl");
+        return 1;
+    }
+
+    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
+
+    for (int i = 0; i < 2; i++)
+    {
+        while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("dyrektor semop P");
+                return 1;
+            }
+        }
+
+        *shared_mem = i == 0 ? N : p_id[5];
+
+        while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("dyrektor semop V");
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+int send_rejestr(int sems, key_t *shared_mem)
+{
+    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
+
+    for (int i = 0; i < 7; i++) // odbieramy p_id[]
+    {
+        while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("main semop P");
+                cleanup();
+                exit(1);
+            }
+        }
+
+        switch (i)
+        {
+        case 5:
+            *shared_mem = K;
+            break;
+        case 6:
+            *shared_mem = N;
+            break;
+
+        default:
+            *shared_mem = p_id[i];
+            break;
+        }
+
+        while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("main semop V");
+                cleanup();
+                exit(1);
+            }
+        }
+    }
+    return 0;
 }
