@@ -13,6 +13,13 @@
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
 
+union semun
+{
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+};
+
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 
@@ -47,12 +54,15 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t tab[2];
+    key_t tab[2]; // tab[0] - N, tab[1] - p_id[5]
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("generator recieve dyrektor");
         exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
     }
+
+    printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
+
     sleep(10);
     return 0;
 }
@@ -69,8 +79,8 @@ void SIGUSR2_handle(int sig)
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 {
-    struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
-    struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
+    struct sembuf P = {.sem_num = SEMAFOR_GENERATOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
 
     for (int i = 0; i < 2; i++)
     {
@@ -80,12 +90,12 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
                 continue;
             else
             {
-                perror("dyrektor semop P");
+                perror("generator semop P");
                 return 1;
             }
         }
 
-        result[i] = *shared_mem; // TODO: przesyłanie int a odbieranie key_t jest głupie
+        result[i] = (int)*shared_mem; // TODO: przesyłanie int a odbieranie key_t jest głupie
 
         while (semop(sems, &V, 1) == -1)
         {
@@ -93,7 +103,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
                 continue;
             else
             {
-                perror("dyrektor semop V");
+                perror("generator semop V");
                 return 1;
             }
         }

@@ -42,6 +42,7 @@ int main(int argc, char **argv)
     int n = -1;
     // tworzymy klucz
     key = ftok(".", 1);
+    // printf("key - %d\n", key);
     if (key == -1)
     {
         perror("main - ftok");
@@ -74,7 +75,7 @@ int main(int argc, char **argv)
         p_id[++n] = fork();
         if (p_id[n] == 0)
         {
-            char u_id[2];
+            char u_id[2]; // dodatkowy identyfikator rodzaju urzednika
             i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
             execl("./Procesy/urzednik", "./Procesy/urzednik", key_str, u_id, NULL);
             perror("main - execl urzednik");
@@ -123,7 +124,17 @@ int main(int argc, char **argv)
     }
 
     // wysyłamy
-    if (semctl(sems, 0, SETVAL, 1) == -1)
+    // printf("main - wysyla\n");
+    union semun arg;
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_MAIN, SETVAL, arg) == -1)
+    {
+        perror("main semctl");
+        cleanup();
+        exit(1);
+    }
+    arg.val = 0;
+    if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
     {
         perror("main semctl");
         cleanup();
