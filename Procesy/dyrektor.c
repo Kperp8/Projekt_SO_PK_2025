@@ -88,9 +88,16 @@ int main(int argc, char **argv)
     // }
 
     printf("dyrektor - test przesylu\n");
-    if ( send_generator(sems, shared_mem) != 0)
+    if (send_generator(sems, shared_mem) != 0)
     {
         perror("dyrektor send_generator");
+        cleanup();
+        exit(1);
+    }
+
+    if (send_rejestr(sems, shared_mem) != 0)
+    {
+        perror("dyrektor send_rejestr");
         cleanup();
         exit(1);
     }
