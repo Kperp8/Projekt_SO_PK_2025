@@ -9,9 +9,9 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-// TODO: deklaracja zmiennych, przesyłanie ich do odpowiednich procesów
-// TODO: przesłać N i K do rejestru
-// TODO: przesłać pidy urzednikow do rejestru
+// TODO: generowanie procesów petent
+// TODO: poprawne działanie petentów
+// TODO: zrobienie logów
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
