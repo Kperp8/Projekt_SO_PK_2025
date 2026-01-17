@@ -12,6 +12,7 @@
 // TODO: generowanie procesów petent
 // TODO: poprawne działanie petentów
 // TODO: zrobienie logów
+// TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0

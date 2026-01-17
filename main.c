@@ -48,7 +48,7 @@ int main(int argc, char **argv)
         perror("main - ftok");
         exit(1);
     }
-    char key_str[20];
+    char key_str[sizeof(key_t) * 8];
     sprintf(key_str, "%d", key);
 
     // tworzymy semafory

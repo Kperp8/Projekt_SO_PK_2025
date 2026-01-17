@@ -24,6 +24,10 @@ void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
+void generate_petent(int N, key_t rejestr_pid);
+char *generate_name(); // problem na przyszłość: pamięć dynamiczna, może być źle
+char *generate_surname();
+char *generate_age();
 
 int main(int argc, char **argv)
 {
@@ -61,7 +65,7 @@ int main(int argc, char **argv)
         exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
     }
 
-    printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
+    // printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
 
     sleep(10);
     return 0;
@@ -109,4 +113,33 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
         }
     }
     return 0;
+}
+
+void generate_petent(int N, key_t rejestr_pid)
+{
+    int active_petents = 0; // ile petentów jest w danej chwili
+    char r_pid[sizeof(key_t) * 8];
+    sprintf(r_pid, "%d", r_pid);
+    while (1) // TODO: niebiezpieczne, przemyśleć
+    {
+        // TODO: wygeneruj petentowi imie i mu je przekaż
+        // TODO: wygeneruj petentowi wiek, i jeśli <18 podaj mu rodzica czy coś
+        // jeśli liczba petentów < N, generuj petenta
+        if (active_petents < N)
+        {
+            key_t pid = fork();
+            if (pid == 0)
+            {
+                execl("./Procesy/petent", "./Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), NULL);
+                perror("rejestr - execl rejestr"); // TODO: nie ma mechanizmu jeśli proces potomny się zepsuje
+            }
+            active_petents++;
+        }
+
+        // sprawdzamy ile procesów się zakończyło
+        int status;
+        pid_t wpid;
+        while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
+            active_petents--;
+    }
 }
