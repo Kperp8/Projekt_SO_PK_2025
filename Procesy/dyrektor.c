@@ -107,6 +107,8 @@ int main(int argc, char **argv)
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
 
+    sleep(5);
+
     cleanup();
 
     return 0;

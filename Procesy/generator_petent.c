@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_DYREKTOR 1
@@ -25,7 +26,7 @@ void SIGUSR2_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void generate_petent(int N, key_t rejestr_pid);
-char *generate_name(); // problem na przyszłość: pamięć dynamiczna, może być źle
+char *generate_name();
 char *generate_surname();
 char *generate_age();
 
@@ -67,7 +68,9 @@ int main(int argc, char **argv)
 
     // printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
 
-    sleep(10);
+    printf("generator - generowanie petentow\n");
+    generate_petent(tab[0], tab[1]);
+
     return 0;
 }
 
@@ -119,8 +122,9 @@ void generate_petent(int N, key_t rejestr_pid)
 {
     int active_petents = 0; // ile petentów jest w danej chwili
     char r_pid[sizeof(key_t) * 8];
-    sprintf(r_pid, "%d", r_pid);
-    while (1) // TODO: niebiezpieczne, przemyśleć
+    sprintf(r_pid, "%d", rejestr_pid);
+    int i = 0;     // na razie kilka, dla debugowania
+    while (i < 10) // TODO: niebiezpieczne, przemyśleć
     {
         // TODO: wygeneruj petentowi imie i mu je przekaż
         // TODO: wygeneruj petentowi wiek, i jeśli <18 podaj mu rodzica czy coś
@@ -130,6 +134,7 @@ void generate_petent(int N, key_t rejestr_pid)
             key_t pid = fork();
             if (pid == 0)
             {
+                srand(time(NULL) ^ getpid());
                 execl("./Procesy/petent", "./Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), NULL);
                 perror("rejestr - execl rejestr"); // TODO: nie ma mechanizmu jeśli proces potomny się zepsuje
             }
@@ -141,5 +146,30 @@ void generate_petent(int N, key_t rejestr_pid)
         pid_t wpid;
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
             active_petents--;
+        i++;
     }
+}
+
+char *generate_name()
+{
+    static char *imiona[] = {
+        "Jan",
+        "Marcin"};
+    return imiona[rand() % 2];
+}
+
+char *generate_surname()
+{
+    static char *nazwiska[] = {
+        "Kowalski",
+        "Duda"};
+    return nazwiska[rand() % 2];
+}
+
+char *generate_age()
+{
+    static char tab[sizeof(int) * 8]; // static pozwala istnieć po zakończeniu funkcji
+    int k = rand() % 65 + 15;
+    sprintf(tab, "%d", k);
+    return tab;
 }
