@@ -9,11 +9,15 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-// TODO: deklaracja zmiennych, przesyłanie ich do odpowiednich procesów
-// TODO: przesłać N i K do rejestru
-// TODO: przesłać pidy urzednikow do rejestru
+// TODO: procesów urzędnik jest 6!!! poprawić
+// TODO: poprawne działanie petentów
+// TODO: powielanie sie rejestrow i poprawne wysyłanie do nich petentów
+// TODO: poprawne wysyłanie petentów do urzędników
+// TODO: zrobienie logów
+// TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
+// TODO: na razie nie usuwamy kolejek
 
-#define ILE_SEMAFOROW 9
+#define ILE_SEMAFOROW 9 // TODO: skoro urzędnicy korzystają z kolejki, potrzeba mniej semaforów
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
@@ -105,6 +109,8 @@ int main(int argc, char **argv)
 
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
+
+    sleep(60);
 
     cleanup();
 
@@ -201,7 +207,7 @@ int send_generator(int sems, key_t *shared_mem)
             }
         }
 
-        *shared_mem = i == 0 ? N : p_id[5];
+        *shared_mem = i == 0 ? N : p_id[6];
 
         while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
         {

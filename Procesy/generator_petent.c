@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_DYREKTOR 1
@@ -24,6 +25,10 @@ void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
+void generate_petent(int N, key_t rejestr_pid);
+char *generate_name();
+char *generate_surname();
+char *generate_age();
 
 int main(int argc, char **argv)
 {
@@ -54,16 +59,18 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t tab[2]; // tab[0] - N, tab[1] - p_id[5]
+    key_t tab[4] = {-1, -1, -1, -1}; // tab[0] - N, tab[1] - p_id[5], tab[2-3] - pidy kopii rejestrow
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("generator recieve dyrektor");
         exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
     }
 
-    printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
+    // printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
 
-    sleep(10);
+    printf("generator - generowanie petentow\n");
+    generate_petent(tab[0], tab[1]); // TODO: jeśli p_id[2-3] nie == -1, wysyłaj losowo pomiędzy nie
+
     return 0;
 }
 
@@ -109,4 +116,74 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
         }
     }
     return 0;
+}
+
+void generate_petent(int N, key_t rejestr_pid)
+{
+    int active_petents = 0; // ile petentów jest w danej chwili
+    char r_pid[sizeof(key_t) * 8];
+    sprintf(r_pid, "%d", rejestr_pid);
+    int i = 0;     // na razie kilka, dla debugowania
+    while (i < 10) // TODO: niebiezpieczne, przemyśleć
+    {
+        // TODO: wygeneruj petentowi imie i mu je przekaż
+        // TODO: wygeneruj petentowi wiek, i jeśli <18 podaj mu rodzica czy coś
+        // jeśli liczba petentów < N, generuj petenta
+        if (active_petents < N)
+        {
+            key_t pid = fork();
+            if (pid == 0)
+            {
+                srand(time(NULL) ^ getpid());
+                execl("Procesy/petent", "Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), NULL);
+                perror("generator - execl petent"); // TODO: nie ma mechanizmu jeśli proces potomny się zepsuje
+            }
+            active_petents++;
+        }
+
+        // sprawdzamy ile procesów się zakończyło
+        int status;
+        pid_t wpid;
+        while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
+            active_petents--;
+        i++;
+    }
+}
+
+char *generate_name()
+{
+    static char *imiona[] = {
+        "Jan",
+        "Marcin",
+        "Anna",
+        "Katarzyna",
+        "Piotr",
+        "Marek",
+        "Ewa",
+        "Tomasz",
+        "Monika"};
+    return imiona[rand() % 9];
+}
+
+char *generate_surname()
+{
+    static char *nazwiska[] = {
+        "Kowalski",
+        "Duda",
+        "Nowak",
+        "Wiśniewski",
+        "Wójcik",
+        "Kowalczyk",
+        "Kamiński",
+        "Lewandowski",
+        "Szymański"};
+    return nazwiska[rand() % 9];
+}
+
+char *generate_age()
+{
+    static char tab[sizeof(int) * 8]; // static pozwala istnieć po zakończeniu funkcji
+    int k = rand() % 65 + 15;
+    sprintf(tab, "%d", k);
+    return tab;
 }
