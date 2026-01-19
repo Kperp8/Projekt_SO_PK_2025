@@ -18,6 +18,7 @@ struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
     char mtext[20]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
+    pid_t pid;
 } __attribute__((packed));
 
 void SIGUSR2_handle(int sig);
@@ -41,7 +42,7 @@ int main(int argc, char **argv)
 pid_t recieve_rejestr(pid_t r_pid)
 {
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok("..", r_pid);
+    key_t key = ftok("..", r_pid); // TODO: rejestr ma key, może lepiej go przekazywać tutaj
     if (key == -1)
     {
         perror("klient ftok");
@@ -83,7 +84,10 @@ void handle_urzednik(pid_t u_pid)
 
     struct msgbuf_urzednik msg;
     msg.mtype = 1;
-    msgrcv(msgid, &msg, sizeof(pid_t), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    msg.pid = getpid();
+    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0); // TODO: obsługa błędów
+    msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    printf("pid %d otrzymal - %s", getpid(), msg.mtext);
 }
 
 void SIGUSR2_handle(int sig)

@@ -20,6 +20,7 @@
 // TODO: obsługa petentów
 // TODO: powielanie rejestru i wysyłanie pidów kopii
 
+// TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
     10, // X1
     10, // X2
@@ -159,7 +160,7 @@ void handle_petent(int pid[])
         
         // losujemy pid
         int i = rand() % 10;
-        i = i < 4 ? i : 4;
+        i = i < 4 ? i : 4; // TODO: narazie nie ma drugiego urzędnika SA
 
         msg.pid = pid[i];
         msgsnd(msgid, &msg, sizeof(pid_t), temp);

@@ -16,7 +16,7 @@
 // TODO: zrobienie logów
 // TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
 
-#define ILE_SEMAFOROW 9
+#define ILE_SEMAFOROW 9 // TODO: skoro urzędnicy korzystają z kolejki, potrzeba mniej semaforów
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
