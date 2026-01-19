@@ -21,42 +21,52 @@ int tab_X[5] = {
 struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
-    char mtext[20]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
+    char mtext[21]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
     pid_t pid;
 } __attribute__((packed));
 
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
+void SIGINT_handle(int sig);
 
-void handle_petent(key_t key);
+void handle_petent();
+void cleanup();
 
 int main(int argc, char **argv)
 {
     signal(SIGUSR1, SIGUSR1_handle);
     signal(SIGUSR2, SIGUSR2_handle);
+    signal(SIGINT, SIGINT_handle);
     printf("urzednik\n");
 
     key_t key = atoi(argv[1]);
     int rodzaj = atoi(argv[2]);
 
-    handle_petent(key);
+    handle_petent();
+
+    cleanup();
     return 0;
 }
 
 void SIGUSR1_handle(int sig)
 {
-    printf("urzednik przychwycil SIGUSR1\n");
+    cleanup();
 }
 
 void SIGUSR2_handle(int sig)
 {
-    printf("urzednik przychwycil SIGUSR2\n");
+    cleanup();
 }
 
-void handle_petent(key_t key)
+void SIGINT_handle(int sig)
+{
+    cleanup();
+}
+
+void handle_petent()
 {
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok("..", getpid());
+    key_t key = ftok(".", getpid());
     if (key == -1)
     {
         perror("urzednik ftok");
@@ -78,8 +88,32 @@ void handle_petent(key_t key)
         msg.mtype = 1;
         msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
         pid_t temp = msg.pid;
+        msg.mtype = temp;
         sprintf(msg.mtext, "%s", "jestes przetworzony\n"); // TODO: oczywiście wiadomość ma być zupełnie inna i zależna od rodzaju urzędnika
         msg.pid = getpid();
-        msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), temp);
+        msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);
+    }
+}
+
+void cleanup()
+{
+    key_t key = ftok(".", getpid());
+    if (key == -1)
+    {
+        perror("urzednik ftok");
+        exit(1);
+    }
+
+    int msgid = msgget(key, IPC_CREAT | 0666);
+    if (msgid == -1)
+    {
+        perror("urzednik msgget");
+        exit(1);
+    }
+
+    if (msgctl(msgid, IPC_RMID, NULL) == -1)
+    {
+        perror("urzednik msgctl");
+        exit(1);
     }
 }

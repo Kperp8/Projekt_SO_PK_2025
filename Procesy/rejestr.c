@@ -37,15 +37,18 @@ struct msgbuf_rejestr // wiadomość od rejestru
 
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
+void SIGINT_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void handle_petent(int pid[]);
 pid_t give_bilet();
+void cleanup();
 
 int main(int argc, char **argv)
 {
     signal(SIGUSR1, SIGUSR1_handle);
     signal(SIGUSR2, SIGUSR2_handle);
+    signal(SIGINT, SIGINT_handle);
     srand(time(NULL));
     printf("rejestr\n");
 
@@ -85,17 +88,25 @@ int main(int argc, char **argv)
         printf("pid[%d]=%d, ", i, tab[i]);
     printf("\n");
 
+    handle_petent(tab);
+
+    cleanup();
     return 0;
 }
 
 void SIGUSR1_handle(int sig)
 {
-    printf("rejestr przychwycil SIGUSR1\n");
+    cleanup();
 }
 
 void SIGUSR2_handle(int sig)
 {
-    printf("rejestr przychwycil SIGUSR2\n");
+    cleanup();
+}
+
+void SIGINT_handle(int sig)
+{
+    cleanup();
 }
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
@@ -135,7 +146,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 void handle_petent(int pid[])
 {
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok("..", getpid());
+    key_t key = ftok(".", getpid());
     if (key == -1)
     {
         perror("rejestr ftok");
@@ -146,7 +157,7 @@ void handle_petent(int pid[])
     int msgid = msgget(key, IPC_CREAT | 0666);
     if (msgid == -1)
     {
-        perror("petent msgget");
+        perror("rejestr msgget");
         exit(1);
     }
 
@@ -155,14 +166,39 @@ void handle_petent(int pid[])
     {
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
-        msgrcv(msgid, &msg, sizeof(pid_t), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+        msgrcv(msgid, &msg, sizeof(pid_t), 0, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
         pid_t temp = msg.pid;
-        
+        msg.mtype = temp;
+
         // losujemy pid
         int i = rand() % 10;
         i = i < 4 ? i : 4; // TODO: narazie nie ma drugiego urzędnika SA
 
         msg.pid = pid[i];
-        msgsnd(msgid, &msg, sizeof(pid_t), temp);
+        msgsnd(msgid, &msg, sizeof(pid_t), 0);
+    }
+}
+
+void cleanup()
+{
+    key_t key = ftok(".", getpid());
+    if (key == -1)
+    {
+        perror("rejestr ftok");
+        exit(1);
+    }
+
+    // dostajemy sie do kolejki
+    int msgid = msgget(key, IPC_CREAT | 0666);
+    if (msgid == -1)
+    {
+        perror("rejestr msgget");
+        exit(1);
+    }
+
+    if (msgctl(msgid, IPC_RMID, NULL) == -1)
+    {
+        perror("rejestr msgctl");
+        exit(1);
     }
 }

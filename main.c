@@ -77,7 +77,7 @@ int main(int argc, char **argv)
         {
             char u_id[2]; // dodatkowy identyfikator rodzaju urzednika
             i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
-            execl("./Procesy/urzednik", "./Procesy/urzednik", key_str, u_id, NULL);
+            execl("Procesy/urzednik", "Procesy/urzednik", key_str, u_id, NULL);
             perror("main - execl urzednik");
             cleanup();
             exit(1);
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
-        execl("./Procesy/rejestr", "./Procesy/rejestr", key_str, NULL);
+        execl("Procesy/rejestr", "Procesy/rejestr", key_str, NULL);
         perror("main - execl rejestr");
         cleanup();
         exit(1);
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
-        execl("./Procesy/generator_petent", "./Procesy/generator_petent", key_str, NULL);
+        execl("Procesy/generator_petent", "Procesy/generator_petent", key_str, NULL);
         perror("main - execl generator");
         cleanup();
         exit(1);
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
-        execl("./Procesy/dyrektor", "./Procesy/dyrektor", key_str, NULL); // TODO: prześlij p_id[]
+        execl("Procesy/dyrektor", "Procesy/dyrektor", key_str, NULL); // TODO: prześlij p_id[]
         perror("main - execl dyrektor");
         cleanup();
         exit(1);

@@ -17,7 +17,7 @@ struct msgbuf_rejestr // wiadomość od rejestru
 struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
-    char mtext[20]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
+    char mtext[21]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
     pid_t pid;
 } __attribute__((packed));
 
@@ -31,7 +31,8 @@ int main(int argc, char **argv)
     signal(SIGUSR2, SIGUSR2_handle);
     printf("%s %s %d pid %d\n", argv[2], argv[3], atoi(argv[4]), getpid());
     // idziemy do rejestru
-    pid_t r_pid = atoi(argv[4]);
+    pid_t r_pid = atoi(argv[1]);
+    printf("petent r_pid=%d\n", r_pid);
     // odbieramy pid urzednika
     pid_t u_pid = recieve_rejestr(r_pid);
     // idziemy do urzednika
@@ -42,10 +43,10 @@ int main(int argc, char **argv)
 pid_t recieve_rejestr(pid_t r_pid)
 {
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok("..", r_pid); // TODO: rejestr ma key, może lepiej go przekazywać tutaj
+    key_t key = ftok(".", r_pid); // TODO: rejestr ma key, może lepiej go przekazywać tutaj
     if (key == -1)
     {
-        perror("klient ftok");
+        perror("petent ftok");
         exit(1);
     }
 
@@ -61,16 +62,19 @@ pid_t recieve_rejestr(pid_t r_pid)
     msg.mtype = 1;
     msg.pid = getpid();
     msgsnd(msgid, &msg, sizeof(pid_t), 0); // TODO: obsługa błędów
-    return msgrcv(msgid, &msg, sizeof(pid_t), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    msgrcv(msgid, &msg, sizeof(pid_t), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    return msg.pid;
+    printf("%d pid otrzymal - %d\n", msg.pid);
 }
 
 void handle_urzednik(pid_t u_pid)
 {
+    printf("petent dostal pid - %d\n", u_pid);
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok("..", u_pid);
+    key_t key = ftok(".", u_pid);
     if (key == -1)
     {
-        perror("klient ftok");
+        perror("petent ftok");
         exit(1);
     }
 

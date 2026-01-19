@@ -135,8 +135,8 @@ void generate_petent(int N, key_t rejestr_pid)
             if (pid == 0)
             {
                 srand(time(NULL) ^ getpid());
-                execl("./Procesy/petent", "./Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), NULL);
-                perror("rejestr - execl rejestr"); // TODO: nie ma mechanizmu jeśli proces potomny się zepsuje
+                execl("Procesy/petent", "Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), NULL);
+                perror("generator - execl petent"); // TODO: nie ma mechanizmu jeśli proces potomny się zepsuje
             }
             active_petents++;
         }
