@@ -9,6 +9,14 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+int tab_X[5] = {
+    10, // X1
+    10, // X2
+    10, // X3
+    10, // X4
+    10, // X5
+};
+
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 

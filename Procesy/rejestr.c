@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/msg.h>
+#include <time.h>
 
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_REJESTR 3
@@ -15,15 +17,35 @@
 
 // bedzie można użyć pipe() przy tworzeniu kolejnych rejestrów
 
+// TODO: obsługa petentów
+// TODO: powielanie rejestru i wysyłanie pidów kopii
+
+int tab_X[5] = {
+    10, // X1
+    10, // X2
+    10, // X3
+    10, // X4
+    10, // X5
+};
+
+struct msgbuf_rejestr // wiadomość od rejestru
+{
+    long mtype;
+    pid_t pid;
+} __attribute__((packed));
+
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
+void handle_petent(int pid[]);
+pid_t give_bilet();
 
 int main(int argc, char **argv)
 {
     signal(SIGUSR1, SIGUSR1_handle);
     signal(SIGUSR2, SIGUSR2_handle);
+    srand(time(NULL));
     printf("rejestr\n");
 
     key_t key;
@@ -58,7 +80,7 @@ int main(int argc, char **argv)
     }
 
     printf("rejestr: otrzymano N=%d, K=%d, ", tab[6], tab[5]);
-    for(int i=0; i<5; i++)
+    for (int i = 0; i < 5; i++)
         printf("pid[%d]=%d, ", i, tab[i]);
     printf("\n");
 
@@ -107,4 +129,39 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
         }
     }
     return 0;
+}
+
+void handle_petent(int pid[])
+{
+    // tworzymy klucz z maską pid rejestru
+    key_t key = ftok("..", getpid());
+    if (key == -1)
+    {
+        perror("rejestr ftok");
+        exit(1);
+    }
+
+    // dostajemy sie do kolejki
+    int msgid = msgget(key, IPC_CREAT | 0666);
+    if (msgid == -1)
+    {
+        perror("petent msgget");
+        exit(1);
+    }
+
+    int n = 0;
+    while (n++ < 20) // TODO: poprawic na while(1), to jest test
+    {
+        struct msgbuf_rejestr msg;
+        msg.mtype = 1;
+        msgrcv(msgid, &msg, sizeof(pid_t), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+        pid_t temp = msg.pid;
+        
+        // losujemy pid
+        int i = rand() % 10;
+        i = i < 4 ? i : 4;
+
+        msg.pid = pid[i];
+        msgsnd(msgid, &msg, sizeof(pid_t), temp);
+    }
 }

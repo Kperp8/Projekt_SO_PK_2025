@@ -59,7 +59,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t tab[2]; // tab[0] - N, tab[1] - p_id[5]
+    key_t tab[4] = {-1, -1, -1, -1}; // tab[0] - N, tab[1] - p_id[5], tab[2-3] - pidy kopii rejestrow
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("generator recieve dyrektor");
@@ -69,7 +69,7 @@ int main(int argc, char **argv)
     // printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
 
     printf("generator - generowanie petentow\n");
-    generate_petent(tab[0], tab[1]);
+    generate_petent(tab[0], tab[1]); // TODO: jeśli p_id[2-3] nie == -1, wysyłaj losowo pomiędzy nie
 
     return 0;
 }

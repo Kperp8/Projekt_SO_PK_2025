@@ -9,8 +9,10 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-// TODO: generowanie procesów petent
+// TODO: procesów urzędnik jest 6!!! poprawić
 // TODO: poprawne działanie petentów
+// TODO: powielanie sie rejestrow i poprawne wysyłanie do nich petentów
+// TODO: poprawne wysyłanie petentów do urzędników
 // TODO: zrobienie logów
 // TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
 
