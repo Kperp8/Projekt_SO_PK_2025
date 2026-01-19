@@ -154,16 +154,30 @@ char *generate_name()
 {
     static char *imiona[] = {
         "Jan",
-        "Marcin"};
-    return imiona[rand() % 2];
+        "Marcin",
+        "Anna",
+        "Katarzyna",
+        "Piotr",
+        "Marek",
+        "Ewa",
+        "Tomasz",
+        "Monika"};
+    return imiona[rand() % 9];
 }
 
 char *generate_surname()
 {
     static char *nazwiska[] = {
         "Kowalski",
-        "Duda"};
-    return nazwiska[rand() % 2];
+        "Duda",
+        "Nowak",
+        "Wiśniewski",
+        "Wójcik",
+        "Kowalczyk",
+        "Kamiński",
+        "Lewandowski",
+        "Szymański"};
+    return nazwiska[rand() % 9];
 }
 
 char *generate_age()
