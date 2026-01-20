@@ -15,6 +15,8 @@
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
 
+int ODEBRAC = 0;
+
 union semun
 {
     int val;
@@ -28,7 +30,7 @@ void SIGRTMIN_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void recieve_rejestr();
-void generate_petent(int N, key_t rejestr_pid);
+void generate_petent(int N, key_t rejestr_pid[]);
 char *generate_name();
 char *generate_surname();
 char *generate_age();
@@ -72,7 +74,7 @@ int main(int argc, char **argv)
     // printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
 
     printf("generator - generowanie petentow\n");
-    generate_petent(tab[0], tab[1]); // TODO: jeśli p_id[2-3] nie == -1, wysyłaj losowo pomiędzy nie
+    generate_petent(tab[0], &tab[1]); // TODO: jeśli p_id[2-3] nie == -1, wysyłaj losowo pomiędzy nie
 
     return 0;
 }
@@ -92,6 +94,7 @@ void SIGRTMIN_handle(int sig)
     // tutaj odpieramy tablice z pidami
     // ustawiamy flage
     // potem ja sprawdzamy w generate_petent i wywołujemy funkcję do odbioru
+    ODEBRAC = 1;
 }
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
@@ -128,7 +131,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
     return 0;
 }
 
-void generate_petent(int N, key_t rejestr_pid)
+void generate_petent(int N, key_t rejestr_pid[])
 {
     // TODO: rejestr_pid na tablice, wysyłać poprzez sprawdzanie jej wartości
     int active_petents = 0; // ile petentów jest w danej chwili
@@ -137,6 +140,8 @@ void generate_petent(int N, key_t rejestr_pid)
     int i = 0;     // na razie kilka, dla debugowania
     while (i < 10) // TODO: niebiezpieczne, przemyśleć
     {
+        if(ODEBRAC)
+            recieve_rejestr(rejestr_pid);
         // TODO: wygeneruj petentowi wiek, i jeśli <18 podaj mu rodzica czy coś
         if (active_petents < N)
         {
@@ -259,4 +264,5 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
             }
         }
     }
+    ODEBRAC = 0;
 }

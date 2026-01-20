@@ -49,8 +49,8 @@ void SIGINT_handle(int sig);
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void handle_petent(int pid[]);
 pid_t give_bilet();
-void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[]); // sprawdza ile jest petentow w kolejce, otwiera nowe procesy rejestr
-void send_generator(pid_t pid[]);
+void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[], pid_t pid_generator); // sprawdza ile jest petentow w kolejce, otwiera nowe procesy rejestr
+void send_generator(pid_t pid[], pid_t pid_generator);
 void cleanup();
 
 int main(int argc, char **argv)
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t tab[7]; // tab[0-4] - p_id, tab[5] - K, tab[6] - N
+    key_t tab[8]; // tab[0-4] - p_id, tab[5] - K, tab[6] - N, tab[7] - p_id[7]
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("rejestr recieve dyrektor");
@@ -123,7 +123,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
 
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < 8; i++)
     {
         while (semop(sems, &P, 1) == -1)
         {
@@ -194,7 +194,7 @@ void handle_petent(int pid[])
     {
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
-        check_petenci(pid[6], pid[5], key, msgid, shared_mem, rejestry);
+        check_petenci(pid[6], pid[5], key, msgid, shared_mem, rejestry, pid[7]);
         msgrcv(msgid, &msg, sizeof(pid_t), 0, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
         pid_t temp = msg.pid;
         msg.mtype = temp;
@@ -232,7 +232,7 @@ void cleanup()
     }
 }
 
-void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[])
+void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[], pid_t pid_generator)
 {
     // TODO: niepotrzebnie dużo wywołań getpid()
     // logika nowych procesów
@@ -281,14 +281,16 @@ void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pi
             zmieniono = 1;
         }
 
-    if (zmieniono)
-        send_generator(pid);
+    if (getpid() == pid[0])
+        if (zmieniono)
+            send_generator(pid, pid_generator);
 }
 
-void send_generator(pid_t pid[]) // TODO: na razie troche brzydko, przemyśleć
+void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche brzydko, przemyśleć
 {
     // musimy przesłać tablicę pid to generatora
     // wysyłamy sygnał SIGRTMIN do generatora
+    kill(pid_generator, SIGRTMIN);
     // on w handlerze odbiera tablice
     key_t key = ftok(".", 1);
     if (key == -1)
@@ -338,7 +340,7 @@ void send_generator(pid_t pid[]) // TODO: na razie troche brzydko, przemyśleć
     }
 
     struct sembuf temp = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
-    semop(sems, &temp, 0);
+    semop(sems, &temp, 1);
 
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
