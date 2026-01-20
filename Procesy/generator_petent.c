@@ -41,6 +41,8 @@ int main(int argc, char **argv)
     signal(SIGUSR2, SIGUSR2_handle);
     signal(SIGRTMIN, SIGRTMIN_handle);
 
+    srand(time(NULL));
+
     printf("generator\n");
 
     key_t key;
@@ -139,7 +141,7 @@ void generate_petent(int N, key_t rejestr_pid[])
     int active_petents = 0;
     int i = 0;
 
-    while (i < 10) // TODO: docelowo while(1) z kontrolą liczby petentów
+    while (i < 50) // TODO: docelowo while(1) z kontrolą liczby petentów
     {
         if (ODEBRAC)
             recieve_rejestr(rejestr_pid);

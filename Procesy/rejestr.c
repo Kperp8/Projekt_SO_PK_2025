@@ -99,6 +99,7 @@ int main(int argc, char **argv)
 
     handle_petent(tab);
 
+    printf("rejestr sie zamyka\n");
     cleanup();
     return 0;
 }
@@ -192,7 +193,7 @@ void handle_petent(int pid[])
     rejestry[0] = getpid();
 
     int n = 0;
-    while (n++ < 20) // TODO: poprawic na while(1), to jest test
+    while (n++ < 50) // TODO: poprawic na while(1), to jest test
     {
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
@@ -362,7 +363,6 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
 
     for (int i = 0; i < 3; i++)
     {
-        printf("rejestr czeka na P\n");
         while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
         {
             if (errno == EINTR)

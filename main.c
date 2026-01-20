@@ -174,7 +174,11 @@ int main(int argc, char **argv)
     shmdt(shared_mem);
 
     // for (int i = 0; i < ILE_PROCESOW; i++)
-    // waitpid(p_id[i], NULL, 0);
+    //     if (waitpid(p_id[i], NULL, 0) != 0)
+    //     {
+    //         printf("proces %d zakonczyl sie porazka\n", p_id[i]);
+    //         cleanup();
+    //     }
 
     // cleanup();
 
