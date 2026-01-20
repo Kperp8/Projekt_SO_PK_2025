@@ -11,13 +11,17 @@
 
 // TODO: procesów urzędnik jest 6!!! poprawić
 // TODO: pełne działanie petentów
-// TODO: powielanie sie rejestrow i poprawne wysyłanie do nich petentów
 // TODO: zrobienie logów
 // TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
-// TODO: petenci powinni się dostawiać do pamięci rejestru i urzędników
 // TODO: przemyśleć jeszcze raz komunikację między rejerstrem a generatorem
 // TODO: typy jak key_t i pid_t są używane niespójnie
 // TODO: podzielić kod w main.c na funkcjie
+// TODO: w wielu miejscach zła filozofia funkcji asynchronicznych, głównie cleanup() wywoływany w handlerze
+// TODO: dyrektor nie zamyka kopii rejestr
+// TODO: petenci powinni mieć limit czasu przez jaki istnieją
+// TODO: urzędnicy mają niepełną funkcjonalność
+// TODO: urzędnicy nie są usuwani przez dyrektora
+// TODO: rejestr ciągle blokuje się na semaforach
 
 #define ILE_SEMAFOROW 9 // TODO: skoro urzędnicy korzystają z kolejki, potrzeba mniej semaforów
 #define SEMAFOR_MAIN 0
@@ -112,8 +116,12 @@ int main(int argc, char **argv)
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
 
-    sleep(60);
+    // sleep(120);
 
+    while (1)
+        sleep(1);
+
+    printf("koniec\n");
     cleanup();
 
     return 0;

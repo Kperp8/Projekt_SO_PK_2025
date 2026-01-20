@@ -59,15 +59,15 @@ pid_t recieve_rejestr(pid_t r_pid)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(int), 0); // pamiec
+    int shm_id = shmget(key, sizeof(long), 0); // pamiec
     if (shm_id == -1)
     {
         perror("petent shmget");
         exit(1);
     }
 
-    int *shared_mem = (int *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
-    if (shared_mem == (int *)-1)
+    long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (shared_mem == (long *)-1)
     {
         perror("petent shmat");
         exit(1);
@@ -80,6 +80,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     (*shared_mem)++;
     msgrcv(msgid, &msg, sizeof(pid_t), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
     (*shared_mem)--;
+    shmdt(shared_mem);
     return msg.pid;
     printf("%d pid otrzymal - %d\n", msg.pid);
 }

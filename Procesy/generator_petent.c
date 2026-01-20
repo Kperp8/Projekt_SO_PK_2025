@@ -141,8 +141,10 @@ void generate_petent(int N, key_t rejestr_pid[])
     int active_petents = 0;
     int i = 0;
 
-    while (i < 50) // TODO: docelowo while(1) z kontrolą liczby petentów
+    while (1) // TODO: docelowo while(1) z kontrolą liczby petentów
     {
+        // sleep(1);
+
         if (ODEBRAC)
             recieve_rejestr(rejestr_pid);
 
@@ -189,7 +191,8 @@ void generate_petent(int N, key_t rejestr_pid[])
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
             active_petents--;
 
-        i++;
+        printf("aktywnych petentow: %d\n", active_petents);
+        // i++;
     }
 }
 
@@ -291,4 +294,5 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
         }
     }
     ODEBRAC = 0;
+    shmdt(shared_mem);
 }

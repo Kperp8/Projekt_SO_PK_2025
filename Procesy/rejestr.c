@@ -49,7 +49,7 @@ void SIGINT_handle(int sig);
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void handle_petent(int pid[]);
 pid_t give_bilet();
-void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[], pid_t pid_generator); // sprawdza ile jest petentow w kolejce, otwiera nowe procesy rejestr
+void check_petenci(int N, int K, key_t key, int msgid, long *shared_mem, pid_t pid[], pid_t pid_generator); // sprawdza ile jest petentow w kolejce, otwiera nowe procesy rejestr
 void send_generator(pid_t pid[], pid_t pid_generator);
 void cleanup();
 
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     signal(SIGUSR2, SIGUSR2_handle);
     signal(SIGINT, SIGINT_handle);
     srand(time(NULL));
-    printf("rejestr\n");
+    printf("rejestr %d\n", getpid());
 
     key_t key;
     key = atoi(argv[1]);
@@ -85,12 +85,29 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    union semun arg;
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_REJESTR, SETVAL, arg) == -1)
+    {
+        perror("rejestr semctl");
+        cleanup();
+        exit(1);
+    }
+    arg.val = 0;
+    if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
+    {
+        perror("rejestr semctl");
+        cleanup();
+        exit(1);
+    }
+
     key_t tab[8]; // tab[0-4] - p_id, tab[5] - K, tab[6] - N, tab[7] - p_id[7]
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("rejestr recieve dyrektor");
         exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
     }
+    shmdt(shared_mem);
 
     printf("rejestr: otrzymano N=%d, K=%d, pid[7]=%d, ", tab[6], tab[5], tab[7]);
     for (int i = 0; i < 5; i++)
@@ -171,7 +188,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(int), IPC_CREAT | 0666); // pamiec
+    int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666); // pamiec
     if (shm_id == -1)
     {
         perror("rejestr shmget");
@@ -179,8 +196,8 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int *shared_mem = (int *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
-    if (shared_mem == (int *)-1)
+    long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (shared_mem == (long *)-1)
     {
         perror("rejestr shmat");
         cleanup();
@@ -193,12 +210,12 @@ void handle_petent(int pid[])
     rejestry[0] = getpid();
 
     int n = 0;
-    while (n++ < 50) // TODO: poprawic na while(1), to jest test
+    while (1) // TODO: poprawic na while(1), to jest test
     {
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
         check_petenci(pid[6], pid[5], key, msgid, shared_mem, rejestry, pid[7]);
-        msgrcv(msgid, &msg, sizeof(pid_t), 0, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+        msgrcv(msgid, &msg, sizeof(pid_t), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
         pid_t temp = msg.pid;
         msg.mtype = temp;
 
@@ -221,7 +238,7 @@ void cleanup()
     }
 
     // dostajemy sie do kolejki
-    int msgid = msgget(key, IPC_CREAT | 0666);
+    int msgid = msgget(key, 0);
     if (msgid == -1)
     {
         perror("rejestr msgget");
@@ -235,12 +252,12 @@ void cleanup()
     }
 
     int shmid = shmget(key, sizeof(int), 0);
-    if(shmid != -1)
+    if (shmid != -1)
         shmctl(shmid, IPC_RMID, NULL);
 }
 
 void check_petenci(int N, int K, key_t key, int msgid,
-                   int *shared_mem, pid_t pid[], pid_t pid_generator)
+                   long *shared_mem, pid_t pid[], pid_t pid_generator)
 {
     if (getpid() != pid[0])
         return; // tylko główny rejestr
@@ -262,9 +279,10 @@ void check_petenci(int N, int K, key_t key, int msgid,
             pid[1] = temp;
             zmieniono = 1;
         }
-        return; // potomek NIE wykonuje dalszej logiki
+        if (temp == 0)
+            return;
     }
-    
+
     if (*shared_mem < N / 3 && pid[1] > 0)
     {
         printf("zamknieto rejestr\n");
@@ -273,7 +291,7 @@ void check_petenci(int N, int K, key_t key, int msgid,
         pid[1] = -1;
         zmieniono = 1;
     }
-    
+
     /* === REJESTR 2 === */
     if (*shared_mem >= 2 * K && pid[2] <= 0)
     {
@@ -289,9 +307,10 @@ void check_petenci(int N, int K, key_t key, int msgid,
             pid[2] = temp;
             zmieniono = 1;
         }
-        return;
+        if (temp == 0)
+            return;
     }
-    
+
     if (*shared_mem < (2 * N) / 3 && pid[2] > 0)
     {
         printf("zamknieto rejestr\n");
@@ -342,22 +361,6 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         exit(1);
     }
 
-    union semun arg;
-    arg.val = 1;
-    if (semctl(sems, SEMAFOR_REJESTR, SETVAL, arg) == -1)
-    {
-        perror("rejestr semctl");
-        cleanup();
-        exit(1);
-    }
-    arg.val = 0;
-    if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
-    {
-        perror("rejestr semctl");
-        cleanup();
-        exit(1);
-    }
-
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
 
@@ -389,4 +392,6 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
             }
         }
     }
+
+    shmdt(shared_mem);
 }
