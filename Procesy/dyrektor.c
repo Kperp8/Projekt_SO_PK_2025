@@ -16,6 +16,8 @@
 // TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
 // TODO: petenci powinni się dostawiać do pamięci rejestru i urzędników
 // TODO: przemyśleć jeszcze raz komunikację między rejerstrem a generatorem
+// TODO: typy jak key_t i pid_t są używane niespójnie
+// TODO: podzielić kod w main.c na funkcjie
 
 #define ILE_SEMAFOROW 9 // TODO: skoro urzędnicy korzystają z kolejki, potrzeba mniej semaforów
 #define SEMAFOR_MAIN 0

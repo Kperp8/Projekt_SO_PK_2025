@@ -39,6 +39,9 @@ int main(int argc, char **argv)
 {
     signal(SIGUSR1, SIGUSR1_handle);
     signal(SIGUSR2, SIGUSR2_handle);
+    signal(SIGRTMIN, SIGRTMIN_handle);
+
+    printf("generator\n");
 
     key_t key;
     key = atoi(argv[1]);
@@ -133,33 +136,57 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 
 void generate_petent(int N, key_t rejestr_pid[])
 {
-    // TODO: rejestr_pid na tablice, wysyłać poprzez sprawdzanie jej wartości
-    int active_petents = 0; // ile petentów jest w danej chwili
-    char r_pid[sizeof(key_t) * 8];
-    sprintf(r_pid, "%d", rejestr_pid);
-    int i = 0;     // na razie kilka, dla debugowania
-    while (i < 10) // TODO: niebiezpieczne, przemyśleć
+    int active_petents = 0;
+    int i = 0;
+
+    while (i < 10) // TODO: docelowo while(1) z kontrolą liczby petentów
     {
-        if(ODEBRAC)
+        if (ODEBRAC)
             recieve_rejestr(rejestr_pid);
-        // TODO: wygeneruj petentowi wiek, i jeśli <18 podaj mu rodzica czy coś
+
+        // Tworzymy tablicę aktywnych rejestrów, zawsze z głównym [0]
+        key_t pool[3];
+        int pool_size = 1;
+        pool[0] = rejestr_pid[0];
+
+        if (rejestr_pid[1] != -1)
+            pool[pool_size++] = rejestr_pid[1];
+        if (rejestr_pid[2] != -1)
+            pool[pool_size++] = rejestr_pid[2];
+
+        // Losowo wybieramy jeden PID z puli (główny zawsze jest obecny)
+        key_t pid_to_use = pool[rand() % pool_size];
+
+        // Konwertujemy PID na string
+        char r_pid[32];
+        snprintf(r_pid, sizeof(r_pid), "%d", pid_to_use);
+
+        // Tworzymy proces petenta, jeśli jest miejsce
         if (active_petents < N)
         {
             key_t pid = fork();
+            if (pid == -1)
+            {
+                perror("generator fork");
+                exit(1);
+            }
             if (pid == 0)
             {
                 srand(time(NULL) ^ getpid());
-                execl("Procesy/petent", "Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), NULL);
-                perror("generator - execl petent"); // TODO: nie ma mechanizmu jeśli proces potomny się zepsuje
+                execl("Procesy/petent", "Procesy/petent",
+                      r_pid, generate_name(), generate_surname(), generate_age(), NULL);
+                perror("generator - execl petent");
+                exit(1);
             }
             active_petents++;
         }
 
-        // sprawdzamy ile procesów się zakończyło
+        // Sprawdzamy zakończone procesy
         int status;
         pid_t wpid;
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
             active_petents--;
+
         i++;
     }
 }
@@ -207,31 +234,28 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
     key_t key = ftok(".", 1);
     if (key == -1)
     {
-        perror("main - ftok");
+        perror("generator - ftok");
         exit(1);
     }
 
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
     {
-        perror("dyrektor semget");
-        cleanup();
+        perror("generator semget");
         exit(1);
     }
 
     int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
     if (shm_id == -1)
     {
-        perror("dyrektor shmget");
-        cleanup();
+        perror("generator shmget");
         exit(1);
     }
 
     key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
     if (shared_mem == (key_t *)-1)
     {
-        perror("dyrektor shmat");
-        cleanup();
+        perror("generator shmat");
         exit(1);
     }
 

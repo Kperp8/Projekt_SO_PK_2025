@@ -92,7 +92,7 @@ int main(int argc, char **argv)
         exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
     }
 
-    printf("rejestr: otrzymano N=%d, K=%d, ", tab[6], tab[5]);
+    printf("rejestr: otrzymano N=%d, K=%d, pid[7]=%d, ", tab[6], tab[5], tab[7]);
     for (int i = 0; i < 5; i++)
         printf("pid[%d]=%d, ", i, tab[i]);
     printf("\n");
@@ -170,7 +170,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    int shm_id = shmget(key, sizeof(int), IPC_CREAT | 0666); // pamiec
     if (shm_id == -1)
     {
         perror("rejestr shmget");
@@ -185,6 +185,8 @@ void handle_petent(int pid[])
         cleanup();
         exit(1);
     }
+
+    *shared_mem = 0;
 
     pid_t rejestry[3];
     rejestry[0] = getpid();
@@ -225,65 +227,81 @@ void cleanup()
         exit(1);
     }
 
-    if (msgctl(msgid, IPC_RMID, NULL) == -1)
+    if (msgctl(msgid, IPC_RMID, NULL) == -1) // TODO: jeśli kolejki już nie ma, zwróci -1, mimo że to nas nie obchodzi
     {
         perror("rejestr msgctl");
         exit(1);
     }
+
+    int shmid = shmget(key, sizeof(int), 0);
+    if(shmid != -1)
+        shmctl(shmid, IPC_RMID, NULL);
 }
 
-void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[], pid_t pid_generator)
+void check_petenci(int N, int K, key_t key, int msgid,
+                   int *shared_mem, pid_t pid[], pid_t pid_generator)
 {
-    // TODO: niepotrzebnie dużo wywołań getpid()
-    // logika nowych procesów
+    if (getpid() != pid[0])
+        return; // tylko główny rejestr
+
     int zmieniono = 0;
-    if (*shared_mem >= K)
+
+    /* === REJESTR 1 === */
+    if (*shared_mem >= K && pid[1] <= 0)
     {
+        printf("otwarto nowy rejestr\n");
         pid_t temp = fork();
-        if (temp == -1)
+        if (temp < 0)
         {
             perror("rejestr fork");
-            cleanup(); // TODO: chyba nie trzeba zawalać
             exit(1);
         }
-        pid[1] = temp;
+        if (temp > 0)
+        {
+            pid[1] = temp;
+            zmieniono = 1;
+        }
+        return; // potomek NIE wykonuje dalszej logiki
+    }
+    
+    if (*shared_mem < N / 3 && pid[1] > 0)
+    {
+        printf("zamknieto rejestr\n");
+        kill(pid[1], SIGKILL);
+        waitpid(pid[1], NULL, 0);
+        pid[1] = -1;
+        zmieniono = 1;
+    }
+    
+    /* === REJESTR 2 === */
+    if (*shared_mem >= 2 * K && pid[2] <= 0)
+    {
+        printf("otwarto nowy rejestr\n");
+        pid_t temp = fork();
+        if (temp < 0)
+        {
+            perror("rejestr fork");
+            return;
+        }
+        if (temp > 0)
+        {
+            pid[2] = temp;
+            zmieniono = 1;
+        }
+        return;
+    }
+    
+    if (*shared_mem < (2 * N) / 3 && pid[2] > 0)
+    {
+        printf("zamknieto rejestr\n");
+        kill(pid[2], SIGKILL);
+        waitpid(pid[2], NULL, 0);
+        pid[2] = -1;
         zmieniono = 1;
     }
 
-    if (getpid() == pid[0])
-        if (*shared_mem < N / 3)
-        {
-            kill(pid[1], SIGKILL); // TODO: error handling
-            zmieniono = 1;
-        }
-
-    if (getpid() == pid[0])
-        if (*shared_mem >= 2 * K)
-        {
-            if (getpid() == pid[0])
-            {
-                pid_t temp = fork();
-                if (temp == -1)
-                {
-                    perror("rejestr fork");
-                    cleanup(); // TODO: chyba nie trzeba zawalać
-                    exit(1);
-                }
-                pid[2] = temp;
-                zmieniono = 1;
-            }
-        }
-
-    if (getpid() == pid[0])
-        if (*shared_mem < (2 / 3) * N)
-        {
-            kill(pid[2], SIGKILL); // TODO: error handling
-            zmieniono = 1;
-        }
-
-    if (getpid() == pid[0])
-        if (zmieniono)
-            send_generator(pid, pid_generator);
+    if (zmieniono)
+        send_generator(pid, pid_generator);
 }
 
 void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche brzydko, przemyśleć
@@ -295,14 +313,14 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
     key_t key = ftok(".", 1);
     if (key == -1)
     {
-        perror("main - ftok");
+        perror("rejestr ftok");
         exit(1);
     }
 
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
     {
-        perror("dyrektor semget");
+        perror("rejestr semget");
         cleanup();
         exit(1);
     }
@@ -310,7 +328,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
     int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
     if (shm_id == -1)
     {
-        perror("dyrektor shmget");
+        perror("rejestr shmget");
         cleanup();
         exit(1);
     }
@@ -318,7 +336,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
     key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
     if (shared_mem == (key_t *)-1)
     {
-        perror("dyrektor shmat");
+        perror("rejestr shmat");
         cleanup();
         exit(1);
     }
@@ -339,14 +357,12 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         exit(1);
     }
 
-    struct sembuf temp = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
-    semop(sems, &temp, 1);
-
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
 
     for (int i = 0; i < 3; i++)
     {
+        printf("rejestr czeka na P\n");
         while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
         {
             if (errno == EINTR)
