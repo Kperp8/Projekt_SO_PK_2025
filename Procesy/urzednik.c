@@ -82,7 +82,7 @@ void handle_petent()
     }
 
     int n = 0;
-    while (n++ < 20) // TODO: poprawic na while(1), to jest test
+    while (n++ < 50) // TODO: poprawic na while(1), to jest test
     {
         struct msgbuf_urzednik msg;
         msg.mtype = 1;

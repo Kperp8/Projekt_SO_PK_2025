@@ -10,12 +10,14 @@
 #include <sys/wait.h>
 
 // TODO: procesów urzędnik jest 6!!! poprawić
-// TODO: poprawne działanie petentów
+// TODO: pełne działanie petentów
 // TODO: powielanie sie rejestrow i poprawne wysyłanie do nich petentów
-// TODO: poprawne wysyłanie petentów do urzędników
 // TODO: zrobienie logów
 // TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
-// TODO: na razie nie usuwamy kolejek
+// TODO: petenci powinni się dostawiać do pamięci rejestru i urzędników
+// TODO: przemyśleć jeszcze raz komunikację między rejerstrem a generatorem
+// TODO: typy jak key_t i pid_t są używane niespójnie
+// TODO: podzielić kod w main.c na funkcjie
 
 #define ILE_SEMAFOROW 9 // TODO: skoro urzędnicy korzystają z kolejki, potrzeba mniej semaforów
 #define SEMAFOR_MAIN 0
@@ -228,7 +230,7 @@ int send_rejestr(int sems, key_t *shared_mem)
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
 
-    for (int i = 0; i < 7; i++) // odbieramy p_id[]
+    for (int i = 0; i < 8; i++)
     {
         while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
         {

@@ -15,10 +15,10 @@
 #define ILE_PROCESOW 8
 
 /*
-0-4: urzednicy
-5: rejestr
-6: generator
-7: dyrektor
+0-5: urzednicy
+6: rejestr
+7: generator
+8: dyrektor
 */
 key_t p_id[ILE_PROCESOW]; // tablica pid procesow potomnych
 key_t key;
@@ -174,7 +174,11 @@ int main(int argc, char **argv)
     shmdt(shared_mem);
 
     // for (int i = 0; i < ILE_PROCESOW; i++)
-    // waitpid(p_id[i], NULL, 0);
+    //     if (waitpid(p_id[i], NULL, 0) != 0)
+    //     {
+    //         printf("proces %d zakonczyl sie porazka\n", p_id[i]);
+    //         cleanup();
+    //     }
 
     // cleanup();
 
