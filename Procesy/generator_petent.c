@@ -23,8 +23,10 @@ union semun
 
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
+void SIGRTMIN_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
+void recieve_rejestr();
 void generate_petent(int N, key_t rejestr_pid);
 char *generate_name();
 char *generate_surname();
@@ -84,6 +86,13 @@ void SIGUSR2_handle(int sig)
     printf("generator przychwycil SIGUSR2\n");
 }
 
+void SIGRTMIN_handle(int sig)
+{
+    // tutaj odpieramy tablice z pidami
+    // ustawiamy flage
+    // potem ja sprawdzamy w generate_petent i wywołujemy funkcję do odbioru
+}
+
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 {
     struct sembuf P = {.sem_num = SEMAFOR_GENERATOR, .sem_op = -1, .sem_flg = 0};
@@ -120,15 +129,14 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 
 void generate_petent(int N, key_t rejestr_pid)
 {
+    // TODO: rejestr_pid na tablice, wysyłać poprzez sprawdzanie jej wartości
     int active_petents = 0; // ile petentów jest w danej chwili
     char r_pid[sizeof(key_t) * 8];
     sprintf(r_pid, "%d", rejestr_pid);
     int i = 0;     // na razie kilka, dla debugowania
     while (i < 10) // TODO: niebiezpieczne, przemyśleć
     {
-        // TODO: wygeneruj petentowi imie i mu je przekaż
         // TODO: wygeneruj petentowi wiek, i jeśli <18 podaj mu rodzica czy coś
-        // jeśli liczba petentów < N, generuj petenta
         if (active_petents < N)
         {
             key_t pid = fork();

@@ -10,12 +10,11 @@
 #include <sys/wait.h>
 
 // TODO: procesów urzędnik jest 6!!! poprawić
-// TODO: poprawne działanie petentów
+// TODO: pełne działanie petentów
 // TODO: powielanie sie rejestrow i poprawne wysyłanie do nich petentów
-// TODO: poprawne wysyłanie petentów do urzędników
 // TODO: zrobienie logów
 // TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
-// TODO: na razie nie usuwamy kolejek
+// TODO: petenci powinni się dostawiać do pamięci rejestru i urzędników
 
 #define ILE_SEMAFOROW 9 // TODO: skoro urzędnicy korzystają z kolejki, potrzeba mniej semaforów
 #define SEMAFOR_MAIN 0

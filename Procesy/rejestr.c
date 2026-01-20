@@ -41,6 +41,8 @@ void SIGINT_handle(int sig);
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void handle_petent(int pid[]);
 pid_t give_bilet();
+void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[]); // sprawdza ile jest petentow w kolejce, otwiera nowe procesy rejestr
+void send_generator(pid_t pid[]);
 void cleanup();
 
 int main(int argc, char **argv)
@@ -160,11 +162,31 @@ void handle_petent(int pid[])
         exit(1);
     }
 
+    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    if (shm_id == -1)
+    {
+        perror("rejestr shmget");
+        cleanup();
+        exit(1);
+    }
+
+    int *shared_mem = (int *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (shared_mem == (int *)-1)
+    {
+        perror("rejestr shmat");
+        cleanup();
+        exit(1);
+    }
+
+    pid_t rejestry[3];
+    rejestry[0] = getpid();
+
     int n = 0;
     while (n++ < 20) // TODO: poprawic na while(1), to jest test
     {
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
+        check_petenci(pid[6], pid[5], key, msgid, shared_mem, rejestry);
         msgrcv(msgid, &msg, sizeof(pid_t), 0, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
         pid_t temp = msg.pid;
         msg.mtype = temp;
@@ -200,4 +222,64 @@ void cleanup()
         perror("rejestr msgctl");
         exit(1);
     }
+}
+
+void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pid[])
+{
+    // TODO: niepotrzebnie dużo wywołań getpid()
+    // logika nowych procesów
+    int zmieniono = 0;
+    if (*shared_mem >= K)
+    {
+        pid_t temp = fork();
+        if (temp == -1)
+        {
+            perror("rejestr fork");
+            cleanup(); // TODO: chyba nie trzeba zawalać
+            exit(1);
+        }
+        pid[1] = temp;
+        zmieniono = 1;
+    }
+
+    if (getpid() == pid[0])
+        if (*shared_mem < N / 3)
+        {
+            kill(pid[1], SIGKILL); // TODO: error handling
+            zmieniono = 1;
+        }
+
+    if (getpid() == pid[0])
+        if (*shared_mem >= 2 * K)
+        {
+            if (getpid() == pid[0])
+            {
+                pid_t temp = fork();
+                if (temp == -1)
+                {
+                    perror("rejestr fork");
+                    cleanup(); // TODO: chyba nie trzeba zawalać
+                    exit(1);
+                }
+                pid[2] = temp;
+                zmieniono = 1;
+            }
+        }
+
+    if (getpid() == pid[0])
+        if (*shared_mem < (2 / 3) * N)
+        {
+            kill(pid[2], SIGKILL); // TODO: error handling
+            zmieniono = 1;
+        }
+
+    if (zmieniono)
+        send_generator(pid);
+}
+
+void send_generator(pid_t pid[])
+{
+    // musimy przesłać tablicę pid to generatora
+    // wysyłamy sygnał SIGRTMIN do generatora
+    // on w handlerze odbiera tablice
 }
