@@ -17,7 +17,6 @@
 
 // bedzie można użyć pipe() przy tworzeniu kolejnych rejestrów
 
-// TODO: obsługa petentów
 // TODO: powielanie rejestru i wysyłanie pidów kopii
 
 // TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main

@@ -59,7 +59,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t tab[4] = {-1, -1, -1, -1}; // tab[0] - N, tab[1] - p_id[5], tab[2-3] - pidy kopii rejestrow
+    key_t tab[4] = {-1, -1, -1, -1}; // tab[0] - N, tab[1] - p_id[6], tab[2-3] - pidy kopii rejestrow
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("generator recieve dyrektor");
