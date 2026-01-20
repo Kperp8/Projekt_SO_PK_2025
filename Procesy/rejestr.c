@@ -12,6 +12,7 @@
 #include <time.h>
 
 #define SEMAFOR_DYREKTOR 1
+#define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
 #define ILE_SEMAFOROW 9
 
@@ -26,6 +27,13 @@ int tab_X[5] = {
     10, // X3
     10, // X4
     10, // X5
+};
+
+union semun
+{
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
 };
 
 struct msgbuf_rejestr // wiadomość od rejestru
@@ -277,9 +285,90 @@ void check_petenci(int N, int K, key_t key, int msgid, int *shared_mem, pid_t pi
         send_generator(pid);
 }
 
-void send_generator(pid_t pid[])
+void send_generator(pid_t pid[]) // TODO: na razie troche brzydko, przemyśleć
 {
     // musimy przesłać tablicę pid to generatora
     // wysyłamy sygnał SIGRTMIN do generatora
     // on w handlerze odbiera tablice
+    key_t key = ftok(".", 1);
+    if (key == -1)
+    {
+        perror("main - ftok");
+        exit(1);
+    }
+
+    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    if (sems == -1)
+    {
+        perror("dyrektor semget");
+        cleanup();
+        exit(1);
+    }
+
+    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    if (shm_id == -1)
+    {
+        perror("dyrektor shmget");
+        cleanup();
+        exit(1);
+    }
+
+    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (shared_mem == (key_t *)-1)
+    {
+        perror("dyrektor shmat");
+        cleanup();
+        exit(1);
+    }
+
+    union semun arg;
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_REJESTR, SETVAL, arg) == -1)
+    {
+        perror("rejestr semctl");
+        cleanup();
+        exit(1);
+    }
+    arg.val = 0;
+    if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
+    {
+        perror("rejestr semctl");
+        cleanup();
+        exit(1);
+    }
+
+    struct sembuf temp = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
+    semop(sems, &temp, 0);
+
+    struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
+
+    for (int i = 0; i < 3; i++)
+    {
+        while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("rejestr semop P");
+                cleanup();
+                exit(1);
+            }
+        }
+
+        *shared_mem = pid[i];
+
+        while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("rejestr semop V");
+                cleanup();
+                exit(1);
+            }
+        }
+    }
 }

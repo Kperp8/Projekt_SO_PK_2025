@@ -13,6 +13,7 @@
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
+#define SEMAFOR_REJESTR 3
 
 union semun
 {
@@ -194,4 +195,68 @@ char *generate_age()
     int k = rand() % 65 + 15;
     sprintf(tab, "%d", k);
     return tab;
+}
+
+void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
+{
+    key_t key = ftok(".", 1);
+    if (key == -1)
+    {
+        perror("main - ftok");
+        exit(1);
+    }
+
+    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    if (sems == -1)
+    {
+        perror("dyrektor semget");
+        cleanup();
+        exit(1);
+    }
+
+    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    if (shm_id == -1)
+    {
+        perror("dyrektor shmget");
+        cleanup();
+        exit(1);
+    }
+
+    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (shared_mem == (key_t *)-1)
+    {
+        perror("dyrektor shmat");
+        cleanup();
+        exit(1);
+    }
+
+    struct sembuf P = {.sem_num = SEMAFOR_GENERATOR, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
+
+    for (int i = 1; i < 4; i++)
+    {
+        while (semop(sems, &P, 1) == -1)
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("generator semop P");
+                exit(1);
+            }
+        }
+
+        pid[i] = *shared_mem;
+
+        while (semop(sems, &V, 1) == -1)
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("generator semop V");
+                exit(1);
+            }
+        }
+    }
 }
