@@ -10,6 +10,8 @@
 #include <sys/wait.h>
 #include <sys/msg.h>
 
+int CLOSE = 0;
+
 int tab_X[5] = {
     10, // X1
     10, // X2
@@ -60,7 +62,7 @@ void SIGUSR2_handle(int sig)
 
 void SIGINT_handle(int sig)
 {
-    cleanup();
+    CLOSE = 1;
 }
 
 void handle_petent()
@@ -84,6 +86,11 @@ void handle_petent()
     int n = 0;
     while (1) // TODO: poprawic na while(1), to jest test
     {
+        if(CLOSE)
+        {
+            cleanup();
+            exit(0);
+        }
         struct msgbuf_urzednik msg;
         msg.mtype = 1;
         msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.

@@ -18,7 +18,7 @@
 
 // bedzie można użyć pipe() przy tworzeniu kolejnych rejestrów
 
-// TODO: powielanie rejestru i wysyłanie pidów kopii
+int CLOSE = 0;
 
 // TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
@@ -124,16 +124,18 @@ int main(int argc, char **argv)
 void SIGUSR1_handle(int sig)
 {
     cleanup();
+    exit(0);
 }
 
 void SIGUSR2_handle(int sig)
 {
     cleanup();
+    exit(0);
 }
 
 void SIGINT_handle(int sig)
 {
-    cleanup();
+    CLOSE = 1;
 }
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
@@ -212,16 +214,28 @@ void handle_petent(int pid[])
     int n = 0;
     while (1) // TODO: poprawic na while(1), to jest test
     {
+        if (CLOSE)
+            cleanup();
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
         check_petenci(pid[6], pid[5], key, msgid, shared_mem, rejestry, pid[7]);
-        msgrcv(msgid, &msg, sizeof(pid_t), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+        if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
+        {
+            if (errno == EINTR)
+                break;
+            else
+            {
+                perror("rejestr msgrcv");
+                cleanup();
+                exit(1);
+            }
+        }
         pid_t temp = msg.pid;
         msg.mtype = temp;
 
         // losujemy pid
         int i = rand() % 10;
-        i = i < 4 ? i : 4; // TODO: narazie nie ma drugiego urzędnika SA
+        i = i < 4 ? i : 4;
 
         msg.pid = pid[i];
         msgsnd(msgid, &msg, sizeof(pid_t), 0);
@@ -280,13 +294,48 @@ void check_petenci(int N, int K, key_t key, int msgid,
             zmieniono = 1;
         }
         if (temp == 0)
+        {
+            // tworzymy klucz z maską pid rejestru
+            key_t key = ftok(".", getpid());
+            if (key == -1)
+            {
+                perror("rejestr ftok");
+                exit(1);
+            }
+
+            // dostajemy sie do kolejki
+            int msgid = msgget(key, IPC_CREAT | 0666);
+            if (msgid == -1)
+            {
+                perror("rejestr msgget");
+                exit(1);
+            }
+
+            int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666); // pamiec
+            if (shm_id == -1)
+            {
+                perror("rejestr shmget");
+                cleanup();
+                exit(1);
+            }
+
+            long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+            if (shared_mem == (long *)-1)
+            {
+                perror("rejestr shmat");
+                cleanup();
+                exit(1);
+            }
+
+            *shared_mem = 0;
             return;
+        }
     }
 
     if (*shared_mem < N / 3 && pid[1] > 0)
     {
         printf("zamknieto rejestr\n");
-        kill(pid[1], SIGKILL);
+        kill(pid[1], SIGINT);
         waitpid(pid[1], NULL, 0);
         pid[1] = -1;
         zmieniono = 1;
@@ -308,13 +357,48 @@ void check_petenci(int N, int K, key_t key, int msgid,
             zmieniono = 1;
         }
         if (temp == 0)
+        {
+            // tworzymy klucz z maską pid rejestru
+            key_t key = ftok(".", getpid());
+            if (key == -1)
+            {
+                perror("rejestr ftok");
+                exit(1);
+            }
+
+            // dostajemy sie do kolejki
+            int msgid = msgget(key, IPC_CREAT | 0666);
+            if (msgid == -1)
+            {
+                perror("rejestr msgget");
+                exit(1);
+            }
+
+            int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666); // pamiec
+            if (shm_id == -1)
+            {
+                perror("rejestr shmget");
+                cleanup();
+                exit(1);
+            }
+
+            long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+            if (shared_mem == (long *)-1)
+            {
+                perror("rejestr shmat");
+                cleanup();
+                exit(1);
+            }
+
+            *shared_mem = 0;
             return;
+        }
     }
 
     if (*shared_mem < (2 * N) / 3 && pid[2] > 0)
     {
         printf("zamknieto rejestr\n");
-        kill(pid[2], SIGKILL);
+        kill(pid[2], SIGINT);
         waitpid(pid[2], NULL, 0);
         pid[2] = -1;
         zmieniono = 1;

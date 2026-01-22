@@ -17,13 +17,15 @@
 // TODO: typy jak key_t i pid_t są używane niespójnie
 // TODO: podzielić kod w main.c na funkcjie
 // TODO: w wielu miejscach zła filozofia funkcji asynchronicznych, głównie cleanup() wywoływany w handlerze
-// TODO: dyrektor nie zamyka kopii rejestr
 // TODO: petenci powinni mieć limit czasu przez jaki istnieją
 // TODO: urzędnicy mają niepełną funkcjonalność
-// TODO: urzędnicy nie są usuwani przez dyrektora
-// TODO: rejestr ciągle blokuje się na semaforach
+// TODO: urzędnicy i rejestr nie są usuwani przez dyrektora przez msgrcv
+// TODO: brak logiki obsługi sygnałów SIGUSR
+// TODO: w rejestrze dużo powtarzającego się kodu
+// TODO: nie blokujemy dostępu do ile osób stoi w kolejkach
+// TODO: zamienić sprawdzanie liczby petentów w kolejce na liczenie wiadomości w kolejce
 
-#define ILE_SEMAFOROW 9 // TODO: skoro urzędnicy korzystają z kolejki, potrzeba mniej semaforów
+#define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
@@ -140,8 +142,9 @@ void cleanup()
             perror("dyrektor shmdt");
         shmctl(shmid, IPC_RMID, NULL);
     }
-    for (int i = 0; i < ILE_PROCESOW; i++)
-        kill(p_id[i], SIGINT);
+    // for (int i = 0; i < ILE_PROCESOW; i++)
+        // kill(p_id[i], SIGINT);
+    kill(0, SIGINT);
 }
 
 void SIGINT_handle(int sig)
