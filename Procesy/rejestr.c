@@ -16,7 +16,7 @@
 #define SEMAFOR_REJESTR 3
 #define ILE_SEMAFOROW 9
 
-int CLOSE = 0;
+volatile sig_atomic_t CLOSE = 0;
 
 // TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
@@ -233,7 +233,10 @@ void handle_petent(int pid[])
     {
         // sleep(1);
         if (CLOSE)
+        {
             cleanup();
+            exit(0);
+        }
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
         check_petenci(pid[6], pid[5], key, shared_mem, rejestry, pid[7], pid);
@@ -319,7 +322,10 @@ void handle_petent_klon(int pid[])
     {
         // sleep(1);
         if (CLOSE)
+        {
             cleanup();
+            exit(0);
+        }
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
         if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
@@ -408,6 +414,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         if (temp == -1)
         {
             perror("rejestr fork");
+            cleanup();
             exit(1);
         }
 
@@ -419,9 +426,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         }
         else
         {
-            // semop(sems, &V, 1);
-
-            printf("Dziecko rejestru uruchomione: pid=%d\n", getpid());
+            printf("nowy rejestr uruchomiony: pid=%d\n", getpid());
 
             handle_petent_klon(tab);
 
@@ -458,9 +463,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         }
         else
         {
-            // semop(sems, &V, 1);
-
-            printf("Dziecko rejestru uruchomione: pid=%d\n", getpid());
+            printf("nowy rejestr uruchomiony: pid=%d\n", getpid());
 
             handle_petent_klon(tab);
 

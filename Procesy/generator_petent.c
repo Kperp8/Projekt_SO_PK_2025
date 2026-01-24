@@ -15,7 +15,7 @@
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
 
-int ODEBRAC = 0;
+volatile sig_atomic_t ODEBRAC = 0;
 
 union semun
 {
@@ -29,7 +29,7 @@ void SIGUSR2_handle(int sig);
 void SIGRTMIN_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
-void recieve_rejestr();
+void recieve_rejestr(key_t tab[]);
 void generate_petent(int N, key_t rejestr_pid[]);
 char *generate_name();
 char *generate_surname();
@@ -136,14 +136,19 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 void generate_petent(int N, key_t rejestr_pid[])
 {
     int active_petents = 0;
-    int i = 0;
 
     while (1) // TODO: docelowo while(1) z kontrolą liczby petentów
     {
         // sleep(1);
+        // printf("%d\n", ODEBRAC);
+        // printf("jo\n");
 
         if (ODEBRAC)
+        {
+            // printf("mo\n");
             recieve_rejestr(rejestr_pid);
+            ODEBRAC = 0;
+        }
 
         // Tworzymy tablicę aktywnych rejestrów, zawsze z głównym [0]
         key_t pool[3];
@@ -160,6 +165,7 @@ void generate_petent(int N, key_t rejestr_pid[])
 
         // Konwertujemy PID na string
         char r_pid[32];
+        // printf("bo\n");
         snprintf(r_pid, sizeof(r_pid), "%d", pid_to_use);
 
         // Tworzymy proces petenta, jeśli jest miejsce
@@ -180,16 +186,17 @@ void generate_petent(int N, key_t rejestr_pid[])
                 exit(1);
             }
             active_petents++;
+            // printf("go\n");
         }
 
         // Sprawdzamy zakończone procesy
         int status;
         pid_t wpid;
+        // printf("qo\n");
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
             active_petents--;
 
         // printf("aktywnych petentow: %d\n", active_petents);
-        // i++;
     }
 }
 
@@ -290,7 +297,6 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
             }
         }
     }
-    ODEBRAC = 0;
     shmdt(shared_mem);
     printf("generator odebral pidy rejestrow\n");
 }
