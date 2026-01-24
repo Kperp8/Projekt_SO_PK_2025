@@ -182,6 +182,24 @@ void handle_petent(int pid[])
         exit(1);
     }
 
+    // tworzymy semafor do liczby czekających
+    int sems = semget(key, 1, IPC_CREAT | 0666); // semafory
+    if (sems == -1)
+    {
+        perror("rejestr semget");
+        cleanup();
+        exit(1);
+    }
+
+    union semun arg;
+    arg.val = 1;
+    if (semctl(sems, 0, SETVAL, arg) == -1)
+    {
+        perror("rejestr semctl");
+        cleanup();
+        exit(1);
+    }
+
     // dostajemy sie do kolejki
     int msgid = msgget(key, IPC_CREAT | 0666);
     if (msgid == -1)
@@ -268,6 +286,10 @@ void cleanup()
     int shmid = shmget(key, sizeof(int), 0);
     if (shmid != -1)
         shmctl(shmid, IPC_RMID, NULL);
+
+    int semid = semget(key, 0, 0);
+    if (semid != -1)
+        semctl(semid, 0, IPC_RMID);
 }
 
 void check_petenci(int N, int K, key_t key, int msgid,
@@ -276,9 +298,24 @@ void check_petenci(int N, int K, key_t key, int msgid,
     if (getpid() != pid[0])
         return; // tylko główny rejestr
 
+    struct sembuf P = {.sem_num = 0, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = 0, .sem_op = +1, .sem_flg = 0};
+
     int zmieniono = 0;
 
     /* === REJESTR 1 === */
+    int sems = semget(key, 1, 0); // semafory
+    if (sems == -1)
+    {
+        perror("rejestr semget");
+        cleanup();
+        exit(1);
+    }
+
+    semop(sems, &P, 1);
+
+    printf("aktywnych petentow - %ld\n", *shared_mem);
+
     if (*shared_mem >= K && pid[1] <= 0)
     {
         printf("otwarto nowy rejestr\n");
@@ -328,6 +365,17 @@ void check_petenci(int N, int K, key_t key, int msgid,
             }
 
             *shared_mem = 0;
+
+            int sems = semget(key, 1, IPC_CREAT | 0666); // semafory
+            if (sems == -1)
+            {
+                perror("rejestr semget");
+                cleanup();
+                exit(1);
+            }
+
+            semop(sems, &V, 1);
+
             return;
         }
     }
@@ -391,6 +439,17 @@ void check_petenci(int N, int K, key_t key, int msgid,
             }
 
             *shared_mem = 0;
+
+            int sems = semget(key, 1, IPC_CREAT | 0666); // semafory
+            if (sems == -1)
+            {
+                perror("rejestr semget");
+                cleanup();
+                exit(1);
+            }
+
+            semop(sems, &V, 1);
+            
             return;
         }
     }
@@ -403,6 +462,8 @@ void check_petenci(int N, int K, key_t key, int msgid,
         pid[2] = -1;
         zmieniono = 1;
     }
+
+    semop(sems, &V, 1);
 
     if (zmieniono)
         send_generator(pid, pid_generator);

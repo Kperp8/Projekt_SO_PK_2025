@@ -24,6 +24,7 @@
 // TODO: w rejestrze dużo powtarzającego się kodu
 // TODO: nie blokujemy dostępu do ile osób stoi w kolejkach
 // TODO: zamienić sprawdzanie liczby petentów w kolejce na liczenie wiadomości w kolejce
+// TODO: pierwsze uruchomienie nie uruchamia rejestru
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0

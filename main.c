@@ -103,6 +103,14 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+    
+    if (p_id[n] == 0)
+    {
+        execl("Procesy/generator_petent", "Procesy/generator_petent", key_str, NULL);
+        perror("main - execl generator");
+        cleanup();
+        exit(1);
+    }
 
     // uruchamiamy proces dyrektor
     p_id[++n] = fork();

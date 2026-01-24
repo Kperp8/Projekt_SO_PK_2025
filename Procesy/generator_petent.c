@@ -191,7 +191,7 @@ void generate_petent(int N, key_t rejestr_pid[])
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
             active_petents--;
 
-        printf("aktywnych petentow: %d\n", active_petents);
+        // printf("aktywnych petentow: %d\n", active_petents);
         // i++;
     }
 }

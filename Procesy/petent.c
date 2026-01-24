@@ -7,6 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 #include <errno.h>
 
 struct msgbuf_rejestr // wiadomość od rejestru
@@ -52,7 +53,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     }
 
     // dostajemy sie do kolejki
-    int msgid = msgget(key, IPC_CREAT | 0666);
+    int msgid = msgget(key, 0);
     if (msgid == -1)
     {
         perror("petent msgget");
@@ -73,13 +74,27 @@ pid_t recieve_rejestr(pid_t r_pid)
         exit(1);
     }
 
+    int sems = semget(key, 1, 0); // semafory
+    if (sems == -1)
+    {
+        perror("petent semget");
+        exit(1);
+    }
+
+    struct sembuf P = {.sem_num = 0, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = 0, .sem_op = +1, .sem_flg = 0};
+
     struct msgbuf_rejestr msg;
     msg.mtype = 1;
     msg.pid = getpid();
     msgsnd(msgid, &msg, sizeof(pid_t), 0); // TODO: obsługa błędów
+    semop(sems, &P, 1);
     (*shared_mem)++;
+    semop(sems, &V, 1);
     msgrcv(msgid, &msg, sizeof(pid_t), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    semop(sems, &P, 1);
     (*shared_mem)--;
+    semop(sems, &V, 1);
     shmdt(shared_mem);
     return msg.pid;
     printf("%d pid otrzymal - %d\n", msg.pid);
