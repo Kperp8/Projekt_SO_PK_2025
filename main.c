@@ -12,6 +12,8 @@
 #define ILE_SEMAFOROW 9 // po jednym dla main, dyrektor, rejestr, każdego urzędnika
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
+#define SEMAFOR_GENERATOR 2
+#define SEMAFOR_REJESTR 3
 #define ILE_PROCESOW 8
 
 /*
@@ -76,7 +78,7 @@ int main(int argc, char **argv)
         if (p_id[n] == 0)
         {
             char u_id[2]; // dodatkowy identyfikator rodzaju urzednika
-            i == 5 ? sprintf(u_id, "%d", i - 1) : sprintf(u_id, "%d", i);
+            sprintf(u_id, "%d", i);
             execl("Procesy/urzednik", "Procesy/urzednik", key_str, u_id, NULL);
             perror("main - execl urzednik");
             cleanup();
@@ -103,7 +105,7 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
-    
+
     if (p_id[n] == 0)
     {
         execl("Procesy/generator_petent", "Procesy/generator_petent", key_str, NULL);
@@ -148,6 +150,19 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+    if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
+    {
+        perror("main semctl");
+        cleanup();
+        exit(1);
+    }
+    if (semctl(sems, SEMAFOR_REJESTR, SETVAL, arg) == -1)
+    {
+        perror("main semctl");
+        cleanup();
+        exit(1);
+    }
+
     struct sembuf P = {.sem_num = SEMAFOR_MAIN, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
     for (int i = 0; i < ILE_PROCESOW; i++)
@@ -181,12 +196,12 @@ int main(int argc, char **argv)
 
     shmdt(shared_mem);
 
-    // for (int i = 0; i < ILE_PROCESOW; i++)
-    //     if (waitpid(p_id[i], NULL, 0) != 0)
-    //     {
-    //         printf("proces %d zakonczyl sie porazka\n", p_id[i]);
-    //         cleanup();
-    //     }
+    for (int i = 0; i < ILE_PROCESOW; i++)
+        if (waitpid(p_id[i], NULL, 0) != 0)
+        {
+            printf("proces %d zakonczyl sie porazka\n", p_id[i]);
+            cleanup();
+        }
 
     // cleanup();
 

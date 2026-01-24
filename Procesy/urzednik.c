@@ -20,6 +20,8 @@ int tab_X[5] = {
     10, // X5
 };
 
+int typ;
+
 struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
@@ -42,7 +44,7 @@ int main(int argc, char **argv)
     printf("urzednik\n");
 
     key_t key = atoi(argv[1]);
-    int rodzaj = atoi(argv[2]);
+    typ = atoi(argv[2]);
 
     handle_petent();
 
@@ -68,7 +70,7 @@ void SIGINT_handle(int sig)
 void handle_petent()
 {
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok(".", getpid());
+    key_t key = typ == 5 ? ftok(".", getpid() - 1) : ftok(".", getpid());
     if (key == -1)
     {
         perror("urzednik ftok");

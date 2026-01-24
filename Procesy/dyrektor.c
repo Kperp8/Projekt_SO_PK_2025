@@ -19,12 +19,10 @@
 // TODO: w wielu miejscach zła filozofia funkcji asynchronicznych, głównie cleanup() wywoływany w handlerze
 // TODO: petenci powinni mieć limit czasu przez jaki istnieją
 // TODO: urzędnicy mają niepełną funkcjonalność
-// TODO: urzędnicy i rejestr nie są usuwani przez dyrektora przez msgrcv
 // TODO: brak logiki obsługi sygnałów SIGUSR
 // TODO: w rejestrze dużo powtarzającego się kodu
-// TODO: nie blokujemy dostępu do ile osób stoi w kolejkach
-// TODO: zamienić sprawdzanie liczby petentów w kolejce na liczenie wiadomości w kolejce
-// TODO: pierwsze uruchomienie nie uruchamia rejestru
+// TODO: czasami uruchomienie programu nie uruchamia rejestru
+// TODO: rejestr nie zawsze czyści swoje zasoby
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
@@ -99,7 +97,15 @@ int main(int argc, char **argv)
     //     // kill(p_id[i], SIGUSR1);
     //     // kill(p_id[i], SIGUSR2);
     // }
-
+    union semun arg;
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
+    {
+        perror("dyrektor semctl");
+        cleanup();
+        exit(1);
+    }
+    
     printf("dyrektor - test przesylu\n");
     if (send_generator(sems, shared_mem) != 0)
     {
@@ -107,6 +113,13 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+
+    // if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
+    // {
+    //     perror("dyrektor semctl");
+    //     cleanup();
+    //     exit(1);
+    // }
 
     if (send_rejestr(sems, shared_mem) != 0)
     {
@@ -144,7 +157,7 @@ void cleanup()
         shmctl(shmid, IPC_RMID, NULL);
     }
     // for (int i = 0; i < ILE_PROCESOW; i++)
-        // kill(p_id[i], SIGINT);
+    // kill(p_id[i], SIGINT);
     kill(0, SIGINT);
 }
 
@@ -191,19 +204,19 @@ int recieve_main(int sems, key_t *shared_mem)
 
 int send_generator(int sems, key_t *shared_mem)
 {
-    union semun arg;
-    arg.val = 1;
-    if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
-    {
-        perror("dyrektor semctl");
-        return 1;
-    }
-    arg.val = 0;
-    if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
-    {
-        perror("dyrektor semctl");
-        return 1;
-    }
+    // union semun arg;
+    // arg.val = 1;
+    // if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
+    // {
+    //     perror("dyrektor semctl");
+    //     return 1;
+    // }
+    // // arg.val = 0;
+    // // if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
+    // // {
+    // //     perror("dyrektor semctl");
+    // //     return 1;
+    // // }
 
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
@@ -264,10 +277,11 @@ int send_rejestr(int sems, key_t *shared_mem)
         case 6:
             *shared_mem = N;
             break;
-
+        case 7:
+            *shared_mem = p_id[7];
+            break;
         default:
             *shared_mem = p_id[i];
-            break;
         }
 
         while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać

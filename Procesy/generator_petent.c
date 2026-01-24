@@ -96,9 +96,6 @@ void SIGUSR2_handle(int sig)
 
 void SIGRTMIN_handle(int sig)
 {
-    // tutaj odpieramy tablice z pidami
-    // ustawiamy flage
-    // potem ja sprawdzamy w generate_petent i wywołujemy funkcję do odbioru
     ODEBRAC = 1;
 }
 
@@ -295,4 +292,5 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
     }
     ODEBRAC = 0;
     shmdt(shared_mem);
+    printf("generator odebral pidy rejestrow\n");
 }

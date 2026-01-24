@@ -102,7 +102,7 @@ pid_t recieve_rejestr(pid_t r_pid)
 
 void handle_urzednik(pid_t u_pid)
 {
-    printf("petent dostal pid - %d\n", u_pid);
+    // printf("petent dostal pid - %d\n", u_pid);
     // tworzymy klucz z maską pid rejestru
     key_t key = ftok(".", u_pid);
     if (key == -1)
