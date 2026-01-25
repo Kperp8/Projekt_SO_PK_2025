@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -9,6 +11,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <string.h>
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_DYREKTOR 1
@@ -39,9 +42,28 @@ char *generate_age();
 
 int main(int argc, char **argv)
 {
-    signal(SIGUSR1, SIGUSR1_handle);
-    signal(SIGUSR2, SIGUSR2_handle);
-    signal(SIGRTMIN, SIGRTMIN_handle);
+    struct sigaction sa;
+
+    /* SIGUSR1 */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIGUSR1_handle;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGUSR1, &sa, NULL);
+
+    /* SIGUSR2 */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIGUSR2_handle;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGUSR2, &sa, NULL);
+
+    /* SIGRTMIN */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIGRTMIN_handle;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGRTMIN, &sa, NULL);
 
     srand(time(NULL));
 

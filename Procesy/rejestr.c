@@ -21,11 +21,11 @@ volatile sig_atomic_t CLOSE = 0;
 
 // TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
-    10, // X1
-    10, // X2
-    10, // X3
-    10, // X4
-    10, // X5
+    1000, // X1
+    1000, // X2
+    1000, // X3
+    1000, // X4
+    1000, // X5
 };
 
 union semun
