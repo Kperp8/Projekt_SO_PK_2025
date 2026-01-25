@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
     if (shm_id == -1)
     {
-        perror("rejestr shmget");
+        perror("rejestr shmget 1");
         exit(1);
     }
 
@@ -106,12 +106,6 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
-    if (semctl(sems, SEMAFOR_REJESTR_DWA, SETVAL, arg) == -1)
-    {
-        perror("rejestr semctl");
-        cleanup();
-        exit(1);
-    }
     arg.val = 0;
     if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
     {
@@ -119,14 +113,14 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
-
-    key_t key_2 = ftok(".", 2);
-
+    
+    key_t key_tabx = ftok(".", 2);
+    
     // zapisujemy tab_X do pamięci współdzielonej, ponieważ procesy potomne
-    shm_id = shmget(key_2, sizeof(int) * 5, IPC_CREAT | 0666);
+    shm_id = shmget(key_tabx, sizeof(int) * 5, IPC_CREAT | 0666);
     if (shm_id == -1)
     {
-        perror("rejestr shmget");
+        perror("rejestr shmget 2");
         exit(1);
     }
     shared_mem = (key_t *)shmat(shm_id, NULL, 0);
@@ -137,9 +131,17 @@ int main(int argc, char **argv)
         exit(1);
     }
     for (int i = 0; i < 5; i++)
-        shared_mem[i] = tab_X[i];
-
+    shared_mem[i] = tab_X[i];
+    
     shmdt(shared_mem);
+    
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_REJESTR_DWA, SETVAL, arg) == -1)
+    {
+        perror("rejestr semctl");
+        cleanup();
+        exit(1);
+    }
 
     handle_petent(tab);
 
@@ -209,8 +211,15 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    key_t key_2 = ftok(".", 2);
-    if (key_2 == -1)
+    key_t key_tabx = ftok(".", 2);
+    if (key_tabx == -1)
+    {
+        perror("rejestr ftok");
+        exit(1);
+    }
+    
+    key_t key_main = ftok(".", 1);
+    if (key_tabx == -1)
     {
         perror("rejestr ftok");
         exit(1);
@@ -225,7 +234,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int sems_2 = semget(key_2, 1, IPC_CREAT | 0666); // semafory
+    int sems_2 = semget(key_main, ILE_SEMAFOROW, 0); // semafory
     if (sems_2 == -1)
     {
         perror("rejestr semget");
@@ -253,15 +262,15 @@ void handle_petent(int pid[])
     int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666); // pamiec
     if (shm_id == -1)
     {
-        perror("rejestr shmget");
+        perror("rejestr shmget 3");
         cleanup();
         exit(1);
     }
 
-    int shm_id_2 = shmget(key_2, sizeof(int) * 5, 0); // pamiec
+    int shm_id_2 = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
     if (shm_id_2 == -1)
     {
-        perror("rejestr shmget");
+        perror("rejestr shmget 4");
         cleanup();
         exit(1);
     }
@@ -341,8 +350,8 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
-    key_t key_2 = ftok(".", 2);
-    if (key_2 == -1)
+    key_t key_tabx = ftok(".", 2);
+    if (key_tabx == -1)
     {
         perror("rejestr ftok");
         exit(1);
@@ -357,7 +366,7 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
-    int sems_2 = semget(key_2, ILE_SEMAFOROW, 0); // semafory
+    int sems_2 = semget(key_tabx, ILE_SEMAFOROW, 0); // semafory
     if (sems_2 == -1)
     {
         perror("rejestr semget");
@@ -385,15 +394,15 @@ void handle_petent_klon(int pid[])
     int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666); // pamiec
     if (shm_id == -1)
     {
-        perror("rejestr shmget");
+        perror("rejestr shmget 5");
         cleanup();
         exit(1);
     }
 
-    int shm_id_2 = shmget(key_2, sizeof(int) * 5, 0); // pamiec
+    int shm_id_2 = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
     if (shm_id_2 == -1)
     {
-        perror("rejestr shmget");
+        perror("rejestr shmget 6");
         cleanup();
         exit(1);
     }
@@ -617,7 +626,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
     int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
     if (shm_id == -1)
     {
-        perror("rejestr shmget");
+        perror("rejestr shmget 7");
         cleanup();
         exit(1);
     }

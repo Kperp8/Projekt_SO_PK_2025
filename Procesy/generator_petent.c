@@ -305,31 +305,37 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
 
 int czy_limity_puste()
 {
+    struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+
     key_t key = ftok(".", 1);
     if (key == -1)
     {
         perror("generator ftok");
         exit(1);
     }
-    key_t key_2 = ftok(".", 2);
+    key_t key_tabx = ftok(".", 2);
     if (key == -1)
     {
         perror("generator ftok");
         exit(1);
     }
 
-    int sems = semget(key, 1, 0); // semafory
+    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
     {
         perror("generator semget");
         exit(1);
     }
 
-    int shm_id = shmget(key_2, sizeof(long), IPC_CREAT | 0666); // pamiec
+    semop(sems, &P, 1);
+
+    int shm_id = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
     if (shm_id == -1)
     {
         perror("generator shmget");
-        exit(1);
+        semop(sems, &V, 1);
+        return 0;
     }
 
     key_t *tabx = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
@@ -339,19 +345,15 @@ int czy_limity_puste()
         exit(1);
     }
 
-    struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
-    struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
-
     int flaga = 1;
 
-    semop(sems, &P, ILE_SEMAFOROW);
     for (int i = 0; i < 5; i++)
         if (tabx[i] != 0)
         {
             flaga = 0;
             break;
         }
-    semop(sems, &V, ILE_SEMAFOROW);
+    semop(sems, &V, 1);
     shmdt(tabx);
 
     return flaga;
