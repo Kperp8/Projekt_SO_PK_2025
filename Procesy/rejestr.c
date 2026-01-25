@@ -14,6 +14,7 @@
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
+#define SEMAFOR_REJESTR_DWA 4 // semafor dla komunikacji między rejestrami
 #define ILE_SEMAFOROW 9
 
 volatile sig_atomic_t CLOSE = 0;
@@ -105,6 +106,12 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+    if (semctl(sems, SEMAFOR_REJESTR_DWA, SETVAL, arg) == -1)
+    {
+        perror("rejestr semctl");
+        cleanup();
+        exit(1);
+    }
     arg.val = 0;
     if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
     {
@@ -112,6 +119,27 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+
+    key_t key_2 = ftok(".", 2);
+
+    // zapisujemy tab_X do pamięci współdzielonej, ponieważ procesy potomne
+    shm_id = shmget(key_2, sizeof(int) * 5, IPC_CREAT | 0666);
+    if (shm_id == -1)
+    {
+        perror("rejestr shmget");
+        exit(1);
+    }
+    shared_mem = (key_t *)shmat(shm_id, NULL, 0);
+    if (shared_mem == (key_t *)-1)
+    {
+        perror("rejestr shmat");
+        cleanup();
+        exit(1);
+    }
+    for (int i = 0; i < 5; i++)
+        shared_mem[i] = tab_X[i];
+
+    shmdt(shared_mem);
 
     handle_petent(tab);
 
@@ -181,9 +209,24 @@ void handle_petent(int pid[])
         exit(1);
     }
 
+    key_t key_2 = ftok(".", 2);
+    if (key_2 == -1)
+    {
+        perror("rejestr ftok");
+        exit(1);
+    }
+
     // tworzymy semafor do liczby czekających
     int sems = semget(key, 1, IPC_CREAT | 0666); // semafory
     if (sems == -1)
+    {
+        perror("rejestr semget");
+        cleanup();
+        exit(1);
+    }
+
+    int sems_2 = semget(key_2, 1, IPC_CREAT | 0666); // semafory
+    if (sems_2 == -1)
     {
         perror("rejestr semget");
         cleanup();
@@ -215,8 +258,24 @@ void handle_petent(int pid[])
         exit(1);
     }
 
+    int shm_id_2 = shmget(key_2, sizeof(int) * 5, 0); // pamiec
+    if (shm_id_2 == -1)
+    {
+        perror("rejestr shmget");
+        cleanup();
+        exit(1);
+    }
+
     long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
     if (shared_mem == (long *)-1)
+    {
+        perror("rejestr shmat");
+        cleanup();
+        exit(1);
+    }
+
+    int *tabx = (int *)shmat(shm_id_2, NULL, 0); // podlaczamy pamiec
+    if (tabx == (int *)-1)
     {
         perror("rejestr shmat");
         cleanup();
@@ -255,8 +314,17 @@ void handle_petent(int pid[])
         msg.mtype = temp;
 
         // losujemy pid
-        int i = rand() % 10;
-        i = i < 4 ? i : 4;
+        struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
+        struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+        semop(sems_2, &P, 1);
+        int i;
+        do
+        {
+            i = rand() % 10;
+            i = i < 4 ? i : 4;
+        } while (tabx[i] == 0);
+        tabx[i]--;
+        semop(sems_2, &V, 1);
 
         msg.pid = pid[i];
         msgsnd(msgid, &msg, sizeof(pid_t), 0);
@@ -273,9 +341,24 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
+    key_t key_2 = ftok(".", 2);
+    if (key_2 == -1)
+    {
+        perror("rejestr ftok");
+        exit(1);
+    }
+
     // tworzymy semafor do liczby czekających
     int sems = semget(key, 1, IPC_CREAT | 0666); // semafory
     if (sems == -1)
+    {
+        perror("rejestr semget");
+        cleanup();
+        exit(1);
+    }
+
+    int sems_2 = semget(key_2, ILE_SEMAFOROW, 0); // semafory
+    if (sems_2 == -1)
     {
         perror("rejestr semget");
         cleanup();
@@ -307,8 +390,24 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
+    int shm_id_2 = shmget(key_2, sizeof(int) * 5, 0); // pamiec
+    if (shm_id_2 == -1)
+    {
+        perror("rejestr shmget");
+        cleanup();
+        exit(1);
+    }
+
     long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
     if (shared_mem == (long *)-1)
+    {
+        perror("rejestr shmat");
+        cleanup();
+        exit(1);
+    }
+
+    int *tabx = (int *)shmat(shm_id_2, NULL, 0); // podlaczamy pamiec
+    if (tabx == (int *)-1)
     {
         perror("rejestr shmat");
         cleanup();
@@ -343,8 +442,17 @@ void handle_petent_klon(int pid[])
         msg.mtype = temp;
 
         // losujemy pid
-        int i = rand() % 10;
-        i = i < 4 ? i : 4;
+        struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
+        struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+        semop(sems_2, &P, 1);
+        int i;
+        do
+        {
+            i = rand() % 10;
+            i = i < 4 ? i : 4;
+        } while (tabx[i] == 0);
+        tabx[i]--;
+        semop(sems_2, &V, 1);
 
         msg.pid = pid[i];
         msgsnd(msgid, &msg, sizeof(pid_t), 0);

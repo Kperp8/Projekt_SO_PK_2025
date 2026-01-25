@@ -14,6 +14,7 @@
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
+#define SEMAFOR_REJESTR_DWA 4
 
 volatile sig_atomic_t ODEBRAC = 0;
 
@@ -31,6 +32,7 @@ void SIGRTMIN_handle(int sig);
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void recieve_rejestr(key_t tab[]);
 void generate_petent(int N, key_t rejestr_pid[]);
+int czy_limity_puste();
 char *generate_name();
 char *generate_surname();
 char *generate_age();
@@ -140,14 +142,17 @@ void generate_petent(int N, key_t rejestr_pid[])
     while (1) // TODO: docelowo while(1) z kontrolą liczby petentów
     {
         // sleep(1);
-        // printf("%d\n", ODEBRAC);
-        // printf("jo\n");
 
         if (ODEBRAC)
         {
-            // printf("mo\n");
             recieve_rejestr(rejestr_pid);
             ODEBRAC = 0;
+        }
+
+        if (czy_limity_puste())
+        {
+            printf("koniec limitow, nie mozna wpuscic wiecej petentow\n");
+            exit(0);
         }
 
         // Tworzymy tablicę aktywnych rejestrów, zawsze z głównym [0]
@@ -165,7 +170,6 @@ void generate_petent(int N, key_t rejestr_pid[])
 
         // Konwertujemy PID na string
         char r_pid[32];
-        // printf("bo\n");
         snprintf(r_pid, sizeof(r_pid), "%d", pid_to_use);
 
         // Tworzymy proces petenta, jeśli jest miejsce
@@ -186,13 +190,11 @@ void generate_petent(int N, key_t rejestr_pid[])
                 exit(1);
             }
             active_petents++;
-            // printf("go\n");
         }
 
         // Sprawdzamy zakończone procesy
         int status;
         pid_t wpid;
-        // printf("qo\n");
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
             active_petents--;
 
@@ -299,4 +301,58 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
     }
     shmdt(shared_mem);
     printf("generator odebral pidy rejestrow\n");
+}
+
+int czy_limity_puste()
+{
+    key_t key = ftok(".", 1);
+    if (key == -1)
+    {
+        perror("generator ftok");
+        exit(1);
+    }
+    key_t key_2 = ftok(".", 2);
+    if (key == -1)
+    {
+        perror("generator ftok");
+        exit(1);
+    }
+
+    int sems = semget(key, 1, 0); // semafory
+    if (sems == -1)
+    {
+        perror("generator semget");
+        exit(1);
+    }
+
+    int shm_id = shmget(key_2, sizeof(long), IPC_CREAT | 0666); // pamiec
+    if (shm_id == -1)
+    {
+        perror("generator shmget");
+        exit(1);
+    }
+
+    key_t *tabx = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (tabx == (key_t *)-1)
+    {
+        perror("generator shmat");
+        exit(1);
+    }
+
+    struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+
+    int flaga = 1;
+
+    semop(sems, &P, ILE_SEMAFOROW);
+    for (int i = 0; i < 5; i++)
+        if (tabx[i] != 0)
+        {
+            flaga = 0;
+            break;
+        }
+    semop(sems, &V, ILE_SEMAFOROW);
+    shmdt(tabx);
+
+    return flaga;
 }

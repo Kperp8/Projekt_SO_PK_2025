@@ -23,6 +23,10 @@
 // TODO: w rejestrze dużo powtarzającego się kodu
 // TODO: czasami uruchomienie programu nie uruchamia rejestru
 // TODO: rejestr nie zawsze czyści swoje zasoby
+// TODO: głupie nazwy w rejestrze
+// TODO: skoro tab_X i tak jest w pamięci dzielonej, równie dobrze dyrektor może go zapisać
+// TODO: rejestr jest super brzydki
+// TODO: pamięć współdzielona do tab_X i wszystko od niej nie jest czyszczone
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
