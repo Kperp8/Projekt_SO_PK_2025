@@ -355,7 +355,7 @@ int czy_limity_puste()
     int shm_id = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
     if (shm_id == -1)
     {
-        perror("generator shmget");
+        perror("generator shmget tabx");
         semop(sems, &V, 1);
         return 0;
     }
