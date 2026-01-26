@@ -29,6 +29,7 @@
 // TODO: rejestr jest super brzydki
 // TODO: obsługa edge-casuw
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
+// TODO: proces usuwający zombie
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
@@ -203,26 +204,30 @@ int recieve_main(int sems, key_t *shared_mem)
 
     for (int i = 0; i < ILE_PROCESOW; i++) // odbieramy p_id[]
     {
+        log_msg("dyrektor blokuje semafor DYREKTOR");
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("dyrektor semop P");
+                log_msg("error semop main");
                 return 1;
             }
         }
-
+        
         p_id[i] = *shared_mem;
-
+        
+        log_msg("dyrektor oddaje semafor MAIN");
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("dyrektor semop V");
+                log_msg("error semop main");
                 return 1;
             }
         }
@@ -233,32 +238,36 @@ int recieve_main(int sems, key_t *shared_mem)
 int send_generator(int sems, key_t *shared_mem)
 {
     log_msg("dyrektor wysyla do generator");
-
+    
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
-
+    
     for (int i = 0; i < 2; i++)
     {
+        log_msg("dyrektor blokuje semafor DYREKTOR");
         while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("dyrektor semop P");
+                log_msg("error semop generator");
                 return 1;
             }
         }
-
+        
         *shared_mem = i == 0 ? N : p_id[6];
-
+        
+        log_msg("dyrektor oddaje semafor GENERATOR");
         while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("dyrektor semop V");
+                log_msg("error semop generator");
                 return 1;
             }
         }
@@ -271,43 +280,47 @@ int send_rejestr(int sems, key_t *shared_mem)
     log_msg("dyrektor wysyla do rejestr");
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
-
+    
     for (int i = 0; i < 8; i++)
     {
+        log_msg("dyrektor blokuje semafor DYREKTOR");
         while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("main semop P");
+                log_msg("error semop rejestr");
                 cleanup();
                 exit(1);
             }
         }
-
+        
         switch (i)
         {
-        case 5:
+            case 5:
             *shared_mem = K;
             break;
-        case 6:
+            case 6:
             *shared_mem = N;
             break;
-        case 7:
+            case 7:
             *shared_mem = p_id[7];
             break;
-        default:
+            default:
             *shared_mem = p_id[i];
         }
-
+        
+        log_msg("dyrektor oddaje semafor REJESTR");
         while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("main semop V");
+                log_msg("error semop rejestr");
                 cleanup();
                 exit(1);
             }

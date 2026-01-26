@@ -205,6 +205,7 @@ int main(int argc, char **argv)
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
     for (int i = 0; i < ILE_PROCESOW; i++)
     {
+        log_msg("main blokuje semafor MAIN");
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
@@ -220,6 +221,7 @@ int main(int argc, char **argv)
         
         *shared_mem = p_id[i];
         
+        log_msg("main oddaje semafor DYREKTOR");
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
