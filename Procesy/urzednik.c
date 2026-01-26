@@ -9,6 +9,9 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/msg.h>
+#include <time.h>
+
+int CLOSE = 0;
 
 int tab_X[5] = {
     10, // X1
@@ -18,10 +21,12 @@ int tab_X[5] = {
     10, // X5
 };
 
+int typ;
+
 struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
-    char mtext[21]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
+    char mtext[30]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
     pid_t pid;
 } __attribute__((packed));
 
@@ -37,10 +42,11 @@ int main(int argc, char **argv)
     signal(SIGUSR1, SIGUSR1_handle);
     signal(SIGUSR2, SIGUSR2_handle);
     signal(SIGINT, SIGINT_handle);
+    srand(time(NULL));
     printf("urzednik\n");
 
     key_t key = atoi(argv[1]);
-    int rodzaj = atoi(argv[2]);
+    typ = atoi(argv[2]);
 
     handle_petent();
 
@@ -60,13 +66,13 @@ void SIGUSR2_handle(int sig)
 
 void SIGINT_handle(int sig)
 {
-    cleanup();
+    CLOSE = 1;
 }
 
 void handle_petent()
 {
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok(".", getpid());
+    key_t key = typ == 5 ? ftok(".", getpid() - 1) : ftok(".", getpid());
     if (key == -1)
     {
         perror("urzednik ftok");
@@ -82,15 +88,47 @@ void handle_petent()
     }
 
     int n = 0;
-    while (1) // TODO: poprawic na while(1), to jest test
+    while (1)
     {
+        if (CLOSE)
+        {
+            cleanup();
+            exit(0);
+        }
+
         struct msgbuf_urzednik msg;
         msg.mtype = 1;
         msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
         pid_t temp = msg.pid;
         msg.mtype = temp;
-        sprintf(msg.mtext, "%s", "jestes przetworzony\n"); // TODO: oczywiście wiadomość ma być zupełnie inna i zależna od rodzaju urzędnika
-        msg.pid = getpid();
+        if (typ < 4)
+        {
+            int l = rand() % 10;
+            if (l == 1)
+            {
+                sprintf(msg.mtext, "%s", "prosze udac sie do kasy\n");
+                msg.pid = 12; // placeholder
+            }
+            else
+            {
+                sprintf(msg.mtext, "%s", "jestes przetworzony\n");
+                msg.pid = -1;
+            }
+        }
+        else
+        {
+            int l = rand() % 10;
+            if (l < 4)
+            {
+                sprintf(msg.mtext, "%s", "prosze udac sie do urzednika\n");
+                msg.pid = typ == 4 ? getpid() - rand() % 4 - 1 : rand() % 4 - 2;
+            }
+            else
+            {
+                sprintf(msg.mtext, "%s", "jestes przetworzony\n");
+                msg.pid = -1;
+            }
+        }
         msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);
     }
 }

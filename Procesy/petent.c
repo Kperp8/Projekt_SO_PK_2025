@@ -7,7 +7,9 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 #include <errno.h>
+#include <string.h>
 
 struct msgbuf_rejestr // wiadomość od rejestru
 {
@@ -18,7 +20,7 @@ struct msgbuf_rejestr // wiadomość od rejestru
 struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
-    char mtext[21]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
+    char mtext[30]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
     pid_t pid;
 } __attribute__((packed));
 
@@ -52,7 +54,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     }
 
     // dostajemy sie do kolejki
-    int msgid = msgget(key, IPC_CREAT | 0666);
+    int msgid = msgget(key, 0);
     if (msgid == -1)
     {
         perror("petent msgget");
@@ -73,13 +75,27 @@ pid_t recieve_rejestr(pid_t r_pid)
         exit(1);
     }
 
+    int sems = semget(key, 1, 0); // semafory
+    if (sems == -1)
+    {
+        perror("petent semget");
+        exit(1);
+    }
+
+    struct sembuf P = {.sem_num = 0, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = 0, .sem_op = +1, .sem_flg = 0};
+
     struct msgbuf_rejestr msg;
     msg.mtype = 1;
     msg.pid = getpid();
     msgsnd(msgid, &msg, sizeof(pid_t), 0); // TODO: obsługa błędów
+    semop(sems, &P, 1);
     (*shared_mem)++;
+    semop(sems, &V, 1);
     msgrcv(msgid, &msg, sizeof(pid_t), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    semop(sems, &P, 1);
     (*shared_mem)--;
+    semop(sems, &V, 1);
     shmdt(shared_mem);
     return msg.pid;
     printf("%d pid otrzymal - %d\n", msg.pid);
@@ -87,7 +103,7 @@ pid_t recieve_rejestr(pid_t r_pid)
 
 void handle_urzednik(pid_t u_pid)
 {
-    printf("petent dostal pid - %d\n", u_pid);
+    // printf("petent dostal pid - %d\n", u_pid);
     // tworzymy klucz z maską pid rejestru
     key_t key = ftok(".", u_pid);
     if (key == -1)
@@ -107,9 +123,19 @@ void handle_urzednik(pid_t u_pid)
     struct msgbuf_urzednik msg;
     msg.mtype = 1;
     msg.pid = getpid();
-    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0); // TODO: obsługa błędów
+    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);           // TODO: obsługa błędów
     msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    if (msg.pid != -1)
+    {
+        if (strcmp(msg.mtext, "prosze udac sie do kasy\n"))
+        {
+            // na razie nie wiem
+        }
+        else
+            handle_urzednik(msg.pid);
+    }
     printf("pid %d otrzymal - %s", getpid(), msg.mtext);
+    exit(0); // żeby dwa razy się nie odzywali jeśli są odesłani
 }
 
 void SIGUSR2_handle(int sig)
@@ -119,7 +145,7 @@ void SIGUSR2_handle(int sig)
     {
         sleep(10);
         printf("PID %d - JESTEM SFRUSTROWANY\n", getpid());
-        i+=10;
+        i += 10;
     } while (i < 120); // TODO: fajnie by byłoby to zrandowmizować, żeby nie mówili wszyscy naraz
     // może różne wiadomości
     exit(0);

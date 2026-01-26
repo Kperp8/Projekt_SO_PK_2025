@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -9,13 +11,15 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <string.h>
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
+#define SEMAFOR_REJESTR_DWA 4
 
-int ODEBRAC = 0;
+volatile sig_atomic_t ODEBRAC = 0;
 
 union semun
 {
@@ -29,17 +33,37 @@ void SIGUSR2_handle(int sig);
 void SIGRTMIN_handle(int sig);
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
-void recieve_rejestr();
+void recieve_rejestr(key_t tab[]);
 void generate_petent(int N, key_t rejestr_pid[]);
+int czy_limity_puste();
 char *generate_name();
 char *generate_surname();
 char *generate_age();
 
 int main(int argc, char **argv)
 {
-    signal(SIGUSR1, SIGUSR1_handle);
-    signal(SIGUSR2, SIGUSR2_handle);
-    signal(SIGRTMIN, SIGRTMIN_handle);
+    struct sigaction sa;
+
+    /* SIGUSR1 */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIGUSR1_handle;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGUSR1, &sa, NULL);
+
+    /* SIGUSR2 */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIGUSR2_handle;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGUSR2, &sa, NULL);
+
+    /* SIGRTMIN */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = SIGRTMIN_handle;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGRTMIN, &sa, NULL);
 
     srand(time(NULL));
 
@@ -96,9 +120,6 @@ void SIGUSR2_handle(int sig)
 
 void SIGRTMIN_handle(int sig)
 {
-    // tutaj odpieramy tablice z pidami
-    // ustawiamy flage
-    // potem ja sprawdzamy w generate_petent i wywołujemy funkcję do odbioru
     ODEBRAC = 1;
 }
 
@@ -139,14 +160,22 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 void generate_petent(int N, key_t rejestr_pid[])
 {
     int active_petents = 0;
-    int i = 0;
 
     while (1) // TODO: docelowo while(1) z kontrolą liczby petentów
     {
         // sleep(1);
 
         if (ODEBRAC)
+        {
             recieve_rejestr(rejestr_pid);
+            ODEBRAC = 0;
+        }
+
+        if (czy_limity_puste())
+        {
+            printf("koniec limitow, nie mozna wpuscic wiecej petentow\n");
+            exit(0);
+        }
 
         // Tworzymy tablicę aktywnych rejestrów, zawsze z głównym [0]
         key_t pool[3];
@@ -191,8 +220,7 @@ void generate_petent(int N, key_t rejestr_pid[])
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)
             active_petents--;
 
-        printf("aktywnych petentow: %d\n", active_petents);
-        // i++;
+        // printf("aktywnych petentow: %d\n", active_petents);
     }
 }
 
@@ -293,6 +321,62 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
             }
         }
     }
-    ODEBRAC = 0;
     shmdt(shared_mem);
+    printf("generator odebral pidy rejestrow\n");
+}
+
+int czy_limity_puste()
+{
+    struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+
+    key_t key = ftok(".", 1);
+    if (key == -1)
+    {
+        perror("generator ftok");
+        exit(1);
+    }
+    key_t key_tabx = ftok(".", 2);
+    if (key == -1)
+    {
+        perror("generator ftok");
+        exit(1);
+    }
+
+    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    if (sems == -1)
+    {
+        perror("generator semget");
+        exit(1);
+    }
+
+    semop(sems, &P, 1);
+
+    int shm_id = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
+    if (shm_id == -1)
+    {
+        perror("generator shmget");
+        semop(sems, &V, 1);
+        return 0;
+    }
+
+    key_t *tabx = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (tabx == (key_t *)-1)
+    {
+        perror("generator shmat");
+        exit(1);
+    }
+
+    int flaga = 1;
+
+    for (int i = 0; i < 5; i++)
+        if (tabx[i] != 0)
+        {
+            flaga = 0;
+            break;
+        }
+    semop(sems, &V, 1);
+    shmdt(tabx);
+
+    return flaga;
 }
