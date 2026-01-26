@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <time.h>
 
 // TODO: procesów urzędnik jest 6!!! poprawić
 // TODO: pełne działanie petentów
@@ -38,6 +39,10 @@
 time_t Tp, Tk;
 int N = 27, K = 9; // do generator, rejestr
 
+FILE *f;
+time_t *t;
+struct tm *t_broken;
+
 key_t key;
 key_t p_id[ILE_PROCESOW];
 
@@ -53,10 +58,20 @@ void SIGINT_handle(int sig);
 int recieve_main(int sems, key_t *shared_mem);
 int send_generator(int sems, key_t *shared_mem);
 int send_rejestr(int sems, key_t *shared_mem);
+void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
     signal(SIGINT, SIGINT_handle);
+
+    f = fopen("./Logi/dyrektor", "w");
+    if (!f)
+    {
+        perror("dyrektor fopen");
+        cleanup();
+        exit(1);
+    }
+    log_msg("dyrektor uruchomiony");
 
     key = atoi(argv[1]); // odbieramy klucz
     printf("dyrektor\n");
@@ -65,6 +80,7 @@ int main(int argc, char **argv)
     if (sems == -1)
     {
         perror("dyrektor semget");
+        log_msg("error semget main");
         cleanup();
         exit(1);
     }
@@ -73,6 +89,7 @@ int main(int argc, char **argv)
     if (shm_id == -1)
     {
         perror("dyrektor shmget");
+        log_msg("error shmget main");
         cleanup();
         exit(1);
     }
@@ -81,17 +98,19 @@ int main(int argc, char **argv)
     if (shared_mem == (key_t *)-1)
     {
         perror("dyrektor shmat");
+        log_msg("error shmat main");
         cleanup();
         exit(1);
     }
 
-    // printf("dyrektor odbiera od main\n");
     if (recieve_main(sems, shared_mem) != 0)
     {
         perror("dyrektor recieve_main");
+        log_msg("error recieve_main");
         cleanup();
         exit(1);
     }
+    log_msg("dyrektor odebral od main");
     // printf("dyrektor odebral pidy\n");
 
     // printf("dyrektor otrzymal:\n");
@@ -106,32 +125,31 @@ int main(int argc, char **argv)
     if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
     {
         perror("dyrektor semctl");
-        cleanup();
-        exit(1);
-    }
-    
-    printf("dyrektor - test przesylu\n");
-    if (send_generator(sems, shared_mem) != 0)
-    {
-        perror("dyrektor send_generator");
+        log_msg("error recieve_main");
         cleanup();
         exit(1);
     }
 
-    // if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
-    // {
-    //     perror("dyrektor semctl");
-    //     cleanup();
-    //     exit(1);
-    // }
+    if (send_generator(sems, shared_mem) != 0)
+    {
+        perror("dyrektor send_generator");
+        log_msg("error send_generator");
+        cleanup();
+        exit(1);
+    }
+    log_msg("dyrektor wyslal do generator");
 
     if (send_rejestr(sems, shared_mem) != 0)
     {
         perror("dyrektor send_rejestr");
+        log_msg("error send_rejestr");
         cleanup();
         exit(1);
     }
+    log_msg("dyrektor wyslal do rejestr");
+
     printf("przeslano\n");
+    log_msg("dyrektor skonczyl przesyl");
 
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
@@ -139,9 +157,10 @@ int main(int argc, char **argv)
     // sleep(120);
 
     while (1)
-        sleep(1);
+        sleep(20); // TODO: coś z tym zrobić
 
     printf("koniec\n");
+    log_msg("dyrektor konczy dzialanie");
     cleanup();
 
     return 0;
@@ -149,6 +168,7 @@ int main(int argc, char **argv)
 
 void cleanup()
 {
+    log_msg("dyrektor wykonuje cleanup");
     int semid = semget(key, 0, 0);
     if (semid != -1)
         semctl(semid, 0, IPC_RMID);
@@ -163,17 +183,20 @@ void cleanup()
     // for (int i = 0; i < ILE_PROCESOW; i++)
     // kill(p_id[i], SIGINT);
     kill(0, SIGINT);
+    fclose(f);
 }
 
 void SIGINT_handle(int sig)
 {
     printf("\nprzechwycono SIGINT\n");
+    log_msg("dyrektor przechwycil SIGINT");
     cleanup();
     exit(0);
 }
 
 int recieve_main(int sems, key_t *shared_mem)
 {
+    log_msg("dyrektor odbiera od main");
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_MAIN, .sem_op = +1, .sem_flg = 0};
 
@@ -208,19 +231,7 @@ int recieve_main(int sems, key_t *shared_mem)
 
 int send_generator(int sems, key_t *shared_mem)
 {
-    // union semun arg;
-    // arg.val = 1;
-    // if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
-    // {
-    //     perror("dyrektor semctl");
-    //     return 1;
-    // }
-    // // arg.val = 0;
-    // // if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
-    // // {
-    // //     perror("dyrektor semctl");
-    // //     return 1;
-    // // }
+    log_msg("dyrektor wysyla do generator");
 
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
@@ -256,6 +267,7 @@ int send_generator(int sems, key_t *shared_mem)
 
 int send_rejestr(int sems, key_t *shared_mem)
 {
+    log_msg("dyrektor wysyla do rejestr");
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
 
@@ -301,4 +313,12 @@ int send_rejestr(int sems, key_t *shared_mem)
         }
     }
     return 0;
+}
+
+void log_msg(char *msg)
+{
+    t = time(NULL);
+    t_broken = localtime(&t);
+    fprintf(f, "<%02d:%02d:%02d> %s\n", t_broken->tm_hour, t_broken->tm_min, t_broken->tm_sec, msg);
+    fflush(f);
 }
