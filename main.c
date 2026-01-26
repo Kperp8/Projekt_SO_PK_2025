@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #define ILE_SEMAFOROW 9 // po jednym dla main, dyrektor, rejestr, każdego urzędnika
 #define SEMAFOR_MAIN 0
@@ -25,6 +26,10 @@
 key_t p_id[ILE_PROCESOW]; // tablica pid procesow potomnych
 key_t key;
 
+FILE *f;
+time_t *t;
+struct tm *t_broken;
+
 union semun
 {
     int val;
@@ -32,14 +37,24 @@ union semun
     unsigned short *array;
 };
 
+void SIGINT_handle(int sig);
+
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
 void cleanup();
-
-void SIGINT_handle(int sig);
+void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
     signal(SIGINT, SIGINT_handle);
+
+    f = fopen("./Logi/main", "w");
+    if (!f)
+    {
+        perror("main fopen");
+        cleanup();
+        exit(1);
+    }
+    log_msg("main uruchomiony");
 
     int n = -1;
     // tworzymy klucz
@@ -48,6 +63,7 @@ int main(int argc, char **argv)
     if (key == -1)
     {
         perror("main - ftok");
+        log_msg("error ftok main");
         exit(1);
     }
     char key_str[sizeof(key_t) * 8];
@@ -58,6 +74,7 @@ int main(int argc, char **argv)
     if (sems == -1)
     {
         perror("main - semget");
+        log_msg("error semget main");
         cleanup();
         exit(1);
     }
@@ -67,11 +84,13 @@ int main(int argc, char **argv)
     if (shmid == -1)
     {
         perror("main shmget");
+        log_msg("error shmget main");
         cleanup();
         exit(1);
     }
 
     // uruchamiamy procesy urzednik
+    log_msg("main uruchamia urzednik");
     for (int i = 0; i < 6; i++)
     {
         p_id[++n] = fork();
@@ -81,65 +100,79 @@ int main(int argc, char **argv)
             sprintf(u_id, "%d", i);
             execl("Procesy/urzednik", "Procesy/urzednik", key_str, u_id, NULL);
             perror("main - execl urzednik");
+            log_msg("error execl urzednik");
             cleanup();
             exit(1);
         }
     }
+    log_msg("main uruchomil urzednik");
 
     // uruchamiamy procesy Rejestracja
+    log_msg("main uruchamia rejestr");
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
         execl("Procesy/rejestr", "Procesy/rejestr", key_str, NULL);
         perror("main - execl rejestr");
+        log_msg("error execl rejestr");
         cleanup();
         exit(1);
     }
+    log_msg("main uruchomil rejestr");
 
     // uruchamiamy proces generator
+    log_msg("main uruchamia generator");
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
         execl("Procesy/generator_petent", "Procesy/generator_petent", key_str, NULL);
         perror("main - execl generator");
+        log_msg("error execl generator");
         cleanup();
         exit(1);
     }
+    log_msg("main uruchomil generator");
 
-    if (p_id[n] == 0)
-    {
-        execl("Procesy/generator_petent", "Procesy/generator_petent", key_str, NULL);
-        perror("main - execl generator");
-        cleanup();
-        exit(1);
-    }
+    // if (p_id[n] == 0)
+    // {
+    //     execl("Procesy/generator_petent", "Procesy/generator_petent", key_str, NULL);
+    //     perror("main - execl generator");
+    //     cleanup();
+    //     exit(1);
+    // }
 
     // uruchamiamy proces dyrektor
+    log_msg("main uruchamia dyrektor");
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
         execl("Procesy/dyrektor", "Procesy/dyrektor", key_str, NULL); // TODO: prześlij p_id[]
         perror("main - execl dyrektor");
+        log_msg("error execl dyrektor");
         cleanup();
         exit(1);
     }
-
+    log_msg("main uruchomil dyrektor");
+    
     // wysyłamy p_id do dyrektora
     key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
     if (shared_mem == (key_t *)-1)
     {
         perror("main shmat");
+        log_msg("error shmat");
         cleanup();
         exit(1);
     }
-
+    
     // wysyłamy
     // printf("main - wysyla\n");
+    log_msg("main ustawia semafory");
     union semun arg;
     arg.val = 1;
     if (semctl(sems, SEMAFOR_MAIN, SETVAL, arg) == -1)
     {
         perror("main semctl");
+        log_msg("error semctl SETVAL");
         cleanup();
         exit(1);
     }
@@ -147,22 +180,27 @@ int main(int argc, char **argv)
     if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
     {
         perror("main semctl");
+        log_msg("error semctl SETVAL");
         cleanup();
         exit(1);
     }
     if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
     {
         perror("main semctl");
+        log_msg("error semctl SETVAL");
         cleanup();
         exit(1);
     }
     if (semctl(sems, SEMAFOR_REJESTR, SETVAL, arg) == -1)
     {
         perror("main semctl");
+        log_msg("error semctl SETVAL");
         cleanup();
         exit(1);
     }
-
+    log_msg("main ustawil semafory");
+    
+    log_msg("main wysyla do dyrektor");
     struct sembuf P = {.sem_num = SEMAFOR_MAIN, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
     for (int i = 0; i < ILE_PROCESOW; i++)
@@ -170,61 +208,76 @@ int main(int argc, char **argv)
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("main semop P");
+                log_msg("error semop dyrektor");
                 cleanup();
                 exit(1);
             }
         }
-
+        
         *shared_mem = p_id[i];
-
+        
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("main semop V");
                 cleanup();
+                log_msg("error semop dyrektor");
                 exit(1);
             }
         }
     }
-
+    log_msg("main wyslal do dyrektor");
+    
     shmdt(shared_mem);
-
+    
+    log_msg("main czeka");
     for (int i = 0; i < ILE_PROCESOW; i++)
-        if (waitpid(p_id[i], NULL, 0) != 0)
-        {
-            printf("proces %d zakonczyl sie porazka\n", p_id[i]);
-            cleanup();
-        }
-
+    if (waitpid(p_id[i], NULL, 0) != 0)
+    {
+        printf("proces %d zakonczyl sie porazka\n", p_id[i]);
+        cleanup();
+    }
+    
     // cleanup();
-
+    
     return 0;
 }
 
 void cleanup()
 {
+    log_msg("main wykonuje cleanup");
     int semid = semget(key, 0, 0);
     if (semid != -1)
-        semctl(semid, 0, IPC_RMID);
+    semctl(semid, 0, IPC_RMID);
     // usuwamy dzieloną pamięć
     int shmid = shmget(key, sizeof(key_t), 0);
     if (shmid != -1)
-        shmctl(shmid, IPC_RMID, NULL);
+    shmctl(shmid, IPC_RMID, NULL);
     // zamykamy procesy pochodne SIGINTem
     for (int i = 0; i < ILE_PROCESOW; i++)
-        kill(p_id[i], SIGINT);
+    kill(p_id[i], SIGINT);
+    fclose(f);
 }
 
 void SIGINT_handle(int sig)
 {
     printf("\nprzechwycono SIGINT\n");
+    log_msg("main przechwycil SIGINT");
     cleanup();
     exit(0);
+}
+
+void log_msg(char *msg)
+{
+    t = time(NULL);
+    t_broken = localtime(&t);
+    fprintf(f, "<%02d:%02d:%02d> %s\n", t_broken->tm_hour, t_broken->tm_min, t_broken->tm_sec, msg);
+    fflush(f);
 }

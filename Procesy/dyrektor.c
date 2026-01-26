@@ -28,6 +28,7 @@
 // TODO: skoro tab_X i tak jest w pamięci dzielonej, równie dobrze dyrektor może go zapisać
 // TODO: rejestr jest super brzydki
 // TODO: obsługa edge-casuw
+// TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
