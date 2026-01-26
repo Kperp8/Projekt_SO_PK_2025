@@ -134,6 +134,7 @@ int main(int argc, char **argv)
     printf("generator - generowanie petentow\n");
     generate_petent(tab[0], &tab[1]); // TODO: jeśli p_id[2-3] nie == -1, wysyłaj losowo pomiędzy nie
 
+    fclose(f);
     return 0;
 }
 
@@ -215,7 +216,7 @@ void generate_petent(int N, key_t rejestr_pid[])
         {
             printf("koniec limitow, nie mozna wpuscic wiecej petentow\n");
             log_msg("limity urzednikow osiagniete, koniec pracy");
-            exit(0);
+            return; // wracamy dla fclose()
         }
 
         // Tworzymy tablicę aktywnych rejestrów, zawsze z głównym [0]

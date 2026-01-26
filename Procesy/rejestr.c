@@ -21,6 +21,10 @@
 
 volatile sig_atomic_t CLOSE = 0;
 
+FILE *f;
+time_t *t;
+struct tm *t_broken;
+
 // TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
     10, // X1
@@ -55,6 +59,7 @@ void send_generator(pid_t pid[], pid_t pid_generator);
 void cleanup();
 void cleanup_klon();
 void handle_petent_klon(int pid[]);
+void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
@@ -64,6 +69,31 @@ int main(int argc, char **argv)
     srand(time(NULL));
     printf("rejestr %d\n", getpid());
 
+    f = fopen("./Logi/rejestr_1", "w"); // otwieramy dla klonów
+    if (!f)
+    {
+        perror("rejestr fopen");
+        cleanup();
+        exit(1);
+    }
+    fclose(f);
+    f = fopen("./Logi/rejestr_2", "w");
+    if (!f)
+    {
+        perror("rejestr fopen");
+        cleanup();
+        exit(1);
+    }
+    fclose(f);
+    f = fopen("./Logi/rejestr_0", "w");
+    if (!f)
+    {
+        perror("rejestr fopen");
+        cleanup();
+        exit(1);
+    }
+
+    log_msg("rejestr sie uruchamia");
     key_t key;
     key = atoi(argv[1]);
 
@@ -71,6 +101,7 @@ int main(int argc, char **argv)
     if (sems == -1)
     {
         perror("rejestr semget");
+        log_msg("error semget main");
         exit(1);
     }
 
@@ -78,6 +109,7 @@ int main(int argc, char **argv)
     if (shm_id == -1)
     {
         perror("rejestr shmget 1");
+        log_msg("error shmget main");
         exit(1);
     }
 
@@ -85,27 +117,37 @@ int main(int argc, char **argv)
     if (shared_mem == (key_t *)-1)
     {
         perror("rejestr shmat");
+        log_msg("error shmat main");
         exit(1);
     }
 
+    log_msg("rejestr odbiera od dyrektor");
     key_t tab[8]; // tab[0-4] - p_id, tab[5] - K, tab[6] - N, tab[7] - p_id[7]
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("rejestr recieve dyrektor");
+        log_msg("error recieve_dyrektor");
         exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
     }
     shmdt(shared_mem);
 
+    char message[120];
+    sprintf(message, "rejestr odebral od dyrektora N=%d, K=%d, pid[7]=%d", tab[6], tab[5], tab[7]);
+    log_msg(message);
     printf("rejestr: otrzymano N=%d, K=%d, pid[7]=%d, ", tab[6], tab[5], tab[7]);
     for (int i = 0; i < 5; i++)
         printf("pid[%d]=%d, ", i, tab[i]);
+    sprintf(message, "pidy urzedniko pid[0]=%d, pid[1]=%d, pid[2]=%d, pid[3]=%d, pid[4]=%d", tab[0], tab[1], tab[2], tab[3], tab[4]);
+    log_msg(message);
     printf("\n");
 
+    log_msg("rejestr ustawia wartosci semaforow");
     union semun arg;
     arg.val = 1;
     if (semctl(sems, SEMAFOR_REJESTR, SETVAL, arg) == -1)
     {
         perror("rejestr semctl");
+        log_msg("error semctl SETVAL");
         cleanup();
         exit(1);
     }
@@ -113,23 +155,36 @@ int main(int argc, char **argv)
     if (semctl(sems, SEMAFOR_GENERATOR, SETVAL, arg) == -1)
     {
         perror("rejestr semctl");
+        log_msg("error semctl SETVAL");
+        cleanup();
+        exit(1);
+    }
+    log_msg("error semctl SETVAL");
+
+    key_t key_tabx = ftok(".", 2);
+    if (key_tabx == -1)
+    {
+        perror("rejestr ftok tabx main");
+        log_msg("error ftok tabx main");
         cleanup();
         exit(1);
     }
 
-    key_t key_tabx = ftok(".", 2);
-
     // zapisujemy tab_X do pamięci współdzielonej, ponieważ procesy potomne
+    log_msg("rejestr zapisuje tabx do pamieci wspoldzielonej");
     shm_id = shmget(key_tabx, sizeof(int) * 5, IPC_CREAT | 0666);
     if (shm_id == -1)
     {
         perror("rejestr shmget 2");
+        log_msg("error shmget main");
         exit(1);
     }
+
     shared_mem = (key_t *)shmat(shm_id, NULL, 0);
     if (shared_mem == (key_t *)-1)
     {
         perror("rejestr shmat");
+        log_msg("error shmat main");
         cleanup();
         exit(1);
     }
@@ -142,6 +197,7 @@ int main(int argc, char **argv)
     if (semctl(sems, SEMAFOR_REJESTR_DWA, SETVAL, arg) == -1)
     {
         perror("rejestr semctl");
+        log_msg("error semop SETVAL");
         cleanup();
         exit(1);
     }
@@ -169,28 +225,33 @@ void install_handler(int signo, void (*handler)(int))
 
 void SIGUSR1_handle(int sig)
 {
+    log_msg("rejestr przechwycil SIGUSR1");
     cleanup();
     exit(0);
 }
 
 void SIGUSR2_handle(int sig)
 {
+    log_msg("rejestr przechwycil SIGUSR2");
     cleanup();
     exit(0);
 }
 
 void SIGINT_handle(int sig)
 {
+    log_msg("rejestr przechwycil SIGINT");
     CLOSE = 1;
 }
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 {
+    log_msg("rejestr uruchamia recieve_dyrektor");
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
 
     for (int i = 0; i < 8; i++)
     {
+        log_msg("rejestr blokuje semafor REJESTR");
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
@@ -204,6 +265,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 
         result[i] = (int)*shared_mem;
 
+        log_msg("rejestr oddaje semafor DYREKTOR");
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
@@ -220,11 +282,13 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 
 void handle_petent(int pid[])
 {
+    log_msg("rejestr uruchamia handle_petent");
     // tworzymy klucz z maską pid rejestru
     key_t key = ftok(".", getpid());
     if (key == -1)
     {
         perror("rejestr ftok");
+        log_msg("error ftok handle_petent");
         exit(1);
     }
 
@@ -232,6 +296,7 @@ void handle_petent(int pid[])
     if (key_tabx == -1)
     {
         perror("rejestr ftok");
+        log_msg("error ftok tabx handle_petent");
         exit(1);
     }
 
@@ -239,6 +304,7 @@ void handle_petent(int pid[])
     if (key_tabx == -1)
     {
         perror("rejestr ftok");
+        log_msg("error ftok main handle_petent");
         exit(1);
     }
 
@@ -247,6 +313,7 @@ void handle_petent(int pid[])
     if (sems == -1)
     {
         perror("rejestr semget");
+        log_msg("error semget handle_petent");
         cleanup();
         exit(1);
     }
@@ -255,6 +322,7 @@ void handle_petent(int pid[])
     if (sems_2 == -1)
     {
         perror("rejestr semget");
+        log_msg("error semget main handle_petent");
         cleanup();
         exit(1);
     }
@@ -264,6 +332,7 @@ void handle_petent(int pid[])
     if (semctl(sems, 0, SETVAL, arg) == -1)
     {
         perror("rejestr semctl");
+        log_msg("error semctl SETVAL handle_petent");
         cleanup();
         exit(1);
     }
@@ -273,6 +342,7 @@ void handle_petent(int pid[])
     if (msgid == -1)
     {
         perror("rejestr msgget");
+        log_msg("error msgget handle_petent");
         exit(1);
     }
 
@@ -280,6 +350,7 @@ void handle_petent(int pid[])
     if (shm_id == -1)
     {
         perror("rejestr shmget 3");
+        log_msg("error shmget handle_petent");
         cleanup();
         exit(1);
     }
@@ -288,6 +359,7 @@ void handle_petent(int pid[])
     if (shm_id_2 == -1)
     {
         perror("rejestr shmget 4");
+        log_msg("error shmget tabx handle_petent");
         cleanup();
         exit(1);
     }
@@ -296,6 +368,7 @@ void handle_petent(int pid[])
     if (shared_mem == (long *)-1)
     {
         perror("rejestr shmat");
+        log_msg("error shmat handle_petent");
         cleanup();
         exit(1);
     }
@@ -304,6 +377,7 @@ void handle_petent(int pid[])
     if (tabx == (int *)-1)
     {
         perror("rejestr shmat");
+        log_msg("error shmat tabx handle_petent");
         cleanup();
         exit(1);
     }
@@ -316,7 +390,11 @@ void handle_petent(int pid[])
     int n = 0;
     while (1) // TODO: poprawic na while(1), to jest test
     {
+        log_msg("rejestr zaczyna glowna petle");
         // sleep(1);
+        char message[50];
+        sprintf(message, "wartosc CLOSE=%d", CLOSE);
+        log_msg(message);
         if (CLOSE)
         {
             cleanup();
@@ -325,6 +403,7 @@ void handle_petent(int pid[])
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
         check_petenci(pid[6], pid[5], key, shared_mem, rejestry, pid[7], pid);
+        log_msg("rejestr odbiera wiadomosc");
         if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
         {
             if (errno == EINTR)
@@ -332,16 +411,21 @@ void handle_petent(int pid[])
             else
             {
                 perror("rejestr msgrcv");
+                log_msg("error msgrcv handle_petent");
                 cleanup();
                 exit(1);
             }
         }
         pid_t temp = msg.pid;
+        sprintf(message, "rejestr odebral wiadomosc od pid=%d", msg.pid);
+        log_msg(message);
         msg.mtype = temp;
 
         // losujemy pid
+        log_msg("rejestr losuje pid");
         struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
         struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+        log_msg("rejestr blokuje semafor REJESTR_DWA");
         semop(sems_2, &P, 1);
         int i, n = 0;
         do
@@ -354,20 +438,28 @@ void handle_petent(int pid[])
                 break;
         } while (tabx[i] == 0);
         tabx[i]--;
+        sprintf(message, "rejestr wybral i=%d", i);
+        log_msg(message);
+        log_msg("rejestr oddaje semafor REJESTR_DWA");
         semop(sems_2, &V, 1);
 
         msg.pid = pid[i];
+        sprintf(message, "rejestr wybral pid=%d", pid[i]);
+        log_msg(message);
+        log_msg("rejestr wysyla wiadomosc");
         msgsnd(msgid, &msg, sizeof(pid_t), 0);
     }
 }
 
 void handle_petent_klon(int pid[])
 {
+    log_msg("rejestr uruchamia handle_petent_klon");
     // tworzymy klucz z maską pid rejestru
     key_t key = ftok(".", getpid());
     if (key == -1)
     {
         perror("rejestr klon ftok");
+        log_msg("error ftok handle_petent_klon");
         exit(1);
     }
 
@@ -375,13 +467,15 @@ void handle_petent_klon(int pid[])
     if (key_tabx == -1)
     {
         perror("rejestr klon ftok");
+        log_msg("error ftok tabx handle_petent_klon");
         exit(1);
     }
-    
+
     key_t key_main = ftok(".", 1);
     if (key_tabx == -1)
     {
         perror("rejestr klon ftok");
+        log_msg("error ftok main handle_petent_klon");
         exit(1);
     }
 
@@ -390,6 +484,7 @@ void handle_petent_klon(int pid[])
     if (sems == -1)
     {
         perror("rejestr klon semget");
+        log_msg("error semget handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -398,6 +493,7 @@ void handle_petent_klon(int pid[])
     if (sems_2 == -1)
     {
         perror("rejestr klon semget");
+        log_msg("error main handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -407,6 +503,7 @@ void handle_petent_klon(int pid[])
     if (semctl(sems, 0, SETVAL, arg) == -1)
     {
         perror("rejestr klon semctl");
+        log_msg("error semctl SETVAL handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -416,6 +513,7 @@ void handle_petent_klon(int pid[])
     if (msgid == -1)
     {
         perror("rejestr klon msgget");
+        log_msg("error msgget handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -424,6 +522,7 @@ void handle_petent_klon(int pid[])
     if (shm_id == -1)
     {
         perror("rejestr klon shmget 5");
+        log_msg("error shmget handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -432,6 +531,7 @@ void handle_petent_klon(int pid[])
     if (shm_id_2 == -1)
     {
         perror("rejestr klon shmget 6");
+        log_msg("error shmget tabx handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -440,6 +540,7 @@ void handle_petent_klon(int pid[])
     if (shared_mem == (long *)-1)
     {
         perror("rejestr klon shmat");
+        log_msg("error shmat handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -448,6 +549,7 @@ void handle_petent_klon(int pid[])
     if (tabx == (int *)-1)
     {
         perror("rejestr klon shmat");
+        log_msg("error shmat tabx handle_petent_klon");
         cleanup_klon();
         exit(1);
     }
@@ -457,14 +559,20 @@ void handle_petent_klon(int pid[])
     int n = 0;
     while (1) // TODO: poprawic na while(1), to jest test
     {
+        log_msg("rejestr uruchamia glowna petle");
+        char message[50];
+        sprintf(message, "wartosc CLOSE=%d", CLOSE);
+        log_msg(message);
         // sleep(1);
         if (CLOSE)
         {
             cleanup_klon();
+            log_msg("rejestr konczy prace");
             exit(0);
         }
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
+        log_msg("rejestr odbiera wiadomosc");
         if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
         {
             if (errno == EINTR)
@@ -472,16 +580,20 @@ void handle_petent_klon(int pid[])
             else
             {
                 perror("rejestr msgrcv");
+                log_msg("error msgrcv handle_petent_klon");
                 cleanup_klon();
                 exit(1);
             }
         }
         pid_t temp = msg.pid;
         msg.mtype = temp;
+        sprintf(message, "rejestr odebral wiadomosc od pid=%d", msg.pid);
+        log_msg(message);
 
         // losujemy pid
         struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
         struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+        log_msg("rejestr blokuje semafor REJESTR_DWA");
         semop(sems_2, &P, 1);
         int i;
         do
@@ -494,15 +606,22 @@ void handle_petent_klon(int pid[])
                 break;
         } while (tabx[i] == 0);
         tabx[i]--;
+        sprintf(message, "rejestr wybral i=%d", i);
+        log_msg(message);
+        log_msg("rejestr oddaje semafor REJESTR_DWA");
         semop(sems_2, &V, 1);
 
         msg.pid = pid[i];
+        sprintf(message, "rejestr wybral pid=%d", pid[i]);
+        log_msg(message);
+        log_msg("rejestr wysyla wiadomosc");
         msgsnd(msgid, &msg, sizeof(pid_t), 0);
     }
 }
 
 void cleanup()
 {
+    log_msg("rejestr uruchamia cleanup");
     key_t key = ftok(".", getpid());
     if (key == -1)
         perror("rejestr ftok cleanup");
@@ -542,10 +661,12 @@ void cleanup()
         semctl(semid, 0, IPC_RMID);
     else
         perror("rejestr semctl cleanup");
+    fclose(f);
 }
 
 void cleanup_klon()
 {
+    log_msg("rejestr oddaje cleanup_klon");
     key_t key = ftok(".", getpid());
     if (key == -1)
         perror("rejestr klon ftok cleanup");
@@ -575,10 +696,12 @@ void cleanup_klon()
         semctl(semid, 0, IPC_RMID);
     else
         perror("rejestr klon semctl cleanup");
+    fclose(f);
 }
 
 void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t pid_generator, int tab[])
 {
+    log_msg("rejestr uruchamia check_petenci");
     if (getpid() != pid[0])
         return; // tylko główny rejestr steruje tworzeniem nowych rejestrów
 
@@ -592,22 +715,29 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     if (sems == -1)
     {
         perror("rejestr semget");
+        log_msg("error semget check_petenci");
         cleanup();
         exit(1);
     }
 
+    log_msg("rejestr blokuje semafor 0 self");
     semop(sems, &P, 1);
 
     printf("aktywnych petentow - %ld\n", *shared_mem);
+    char message[50];
+    sprintf(message, "aktywnych petentow=%ld", *shared_mem);
+    log_msg(message);
 
     // ===== REJESTR 1 =====
     if (*shared_mem >= K && pid[1] <= 0)
     {
         printf("otwarto nowy rejestr\n");
+        log_msg("otwieramy nowy rejestr");
         pid_t temp = fork();
         if (temp == -1)
         {
             perror("rejestr fork");
+            log_msg("error fork check_petenci");
             cleanup();
             exit(1);
         }
@@ -618,14 +748,24 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
             pid[1] = temp;
             zmieniono = 1;
             kill(pid_generator, SIGRTMIN);
+            log_msg("rejestr wyslal SIGRTMIN do generator");
         }
         else
         {
+            f = fopen("./Logi/rejestr_1", "a");
+            if (!f)
+            {
+                perror("rejestr fopen");
+                cleanup_klon();
+                exit(1);
+            }
             printf("nowy rejestr uruchomiony: pid=%d\n", getpid());
-
+            log_msg("rejestr uruchomiony");
+            
             handle_petent_klon(tab);
-
+            
             cleanup_klon();
+            log_msg("rejestr sie zamyka");
             exit(0);
         }
     }
@@ -634,9 +774,13 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     if (*shared_mem < N / 3 && pid[1] > 0)
     {
         printf("zamknieto rejestr\n");
+        log_msg("zamykanie rejestru");
         kill(pid_generator, SIGRTMIN); // najpierw generator, zeby nie wysylal do nieistniejących procesów
+        log_msg("rejestr wyslal SIGRTMIN do generatora");
         kill(pid[1], SIGINT);
+        log_msg("rejestr wyslal SIGINT do rejestru");
         waitpid(pid[1], NULL, 0);
+        log_msg("rejestr sie zamkna");
         pid[1] = -1;
         zmieniono = 1;
     }
@@ -645,10 +789,12 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     if (*shared_mem >= 2 * K && pid[2] <= 0)
     {
         printf("otwarto nowy rejestr\n");
+        log_msg("otwieramy nowy rejestr");
         pid_t temp = fork();
         if (temp < 0)
         {
             perror("rejestr fork");
+            log_msg("error fork check_petenci");
             return;
         }
 
@@ -657,14 +803,24 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
             pid[2] = temp;
             zmieniono = 1;
             kill(pid_generator, SIGRTMIN);
+            log_msg("rejestr wyslal SIGRTMIN do generator");
         }
         else
         {
+            f = fopen("./Logi/rejestr_2", "a");
+            if (!f)
+            {
+                perror("rejestr fopen");
+                cleanup_klon();
+                exit(1);
+            }
             printf("nowy rejestr uruchomiony: pid=%d\n", getpid());
+            log_msg("rejestr uruchomiony");
 
             handle_petent_klon(tab);
 
             cleanup_klon();
+            log_msg("rejestr sie zamyka");
             exit(0);
         }
     }
@@ -673,13 +829,18 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     if (*shared_mem < (2 * N) / 3 && pid[2] > 0)
     {
         printf("zamknieto rejestr\n");
+        log_msg("zamykanie rejestru");
         kill(pid_generator, SIGRTMIN);
+        log_msg("rejestr wyslal SIGRTMIN do generatora");
         kill(pid[2], SIGINT);
+        log_msg("rejestr wyslal SIGINT do rejestru");
         waitpid(pid[2], NULL, 0);
+        log_msg("rejestr sie zamkna");
         pid[2] = -1;
         zmieniono = 1;
     }
 
+    log_msg("rejestr oddaje semafor 0 self");
     semop(sems, &V, 1);
 
     if (zmieniono)
@@ -688,63 +849,72 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
 
 void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche brzydko, przemyśleć
 {
+    log_msg("rejestr uruchamia send_generator");
     key_t key = ftok(".", 1);
     if (key == -1)
     {
         perror("rejestr ftok");
+        log_msg("error ftok send_generator");
         exit(1);
     }
-
+    
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
     {
         perror("rejestr semget");
+        log_msg("error semget send_generator");
         cleanup();
         exit(1);
     }
-
+    
     int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
     if (shm_id == -1)
     {
         perror("rejestr shmget 7");
+        log_msg("error shmget send_generator");
         cleanup();
         exit(1);
     }
-
+    
     key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
     if (shared_mem == (key_t *)-1)
     {
         perror("rejestr shmat");
+        log_msg("error shmat send_generator");
         cleanup();
         exit(1);
     }
-
+    
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
-
+    
     for (int i = 0; i < 3; i++)
     {
+        log_msg("rejestr blokuje semafor REJESTR");
         while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("rejestr semop P");
+                log_msg("error semop send_generator");
                 cleanup();
                 exit(1);
             }
         }
-
+        
         *shared_mem = pid[i];
-
+        
+        log_msg("rejestr oddaje semafor GENERATOR");
         while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
         {
             if (errno == EINTR)
-                continue;
+            continue;
             else
             {
                 perror("rejestr semop V");
+                log_msg("error semop send_generator");
                 cleanup();
                 exit(1);
             }
@@ -752,4 +922,12 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
     }
 
     shmdt(shared_mem);
+}
+
+void log_msg(char *msg)
+{
+    t = time(NULL);
+    t_broken = localtime(&t);
+    fprintf(f, "<%02d:%02d:%02d> %s\n", t_broken->tm_hour, t_broken->tm_min, t_broken->tm_sec, msg);
+    fflush(f);
 }

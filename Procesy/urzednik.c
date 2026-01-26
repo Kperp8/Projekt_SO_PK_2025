@@ -63,9 +63,9 @@ int main(int argc, char **argv)
         exit(1);
     }
     log_msg("urzednik uruchomiony");
-    
+
     handle_petent();
-    
+
     cleanup();
     return 0;
 }
@@ -103,7 +103,7 @@ void handle_petent()
     char s_klucz[50];
     sprintf(s_klucz, "urzednik tworzy klucz o wartosci=%d", key);
     log_msg(s_klucz);
-    
+
     // dostajemy sie do kolejki
     log_msg("urzednik dostaje sie do kolejki");
     int msgid = msgget(key, IPC_CREAT | 0666);
@@ -113,7 +113,7 @@ void handle_petent()
         log_msg("error msgget self");
         exit(1);
     }
-    
+
     int n = 0;
     log_msg("urzednik zaczyna glowna petle");
     while (1)
@@ -126,7 +126,7 @@ void handle_petent()
             cleanup();
             exit(0);
         }
-        
+
         struct msgbuf_urzednik msg;
         msg.mtype = 1;
         log_msg("urzednik odbiera wiadomosc");
@@ -190,6 +190,7 @@ void cleanup()
         perror("urzednik msgctl");
         exit(1);
     }
+    fclose(f);
 }
 
 void log_msg(char *msg)
