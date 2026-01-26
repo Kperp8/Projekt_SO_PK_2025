@@ -747,8 +747,9 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
             // Rodzic zapisuje PID dziecka
             pid[1] = temp;
             zmieniono = 1;
-            kill(pid_generator, SIGRTMIN);
-            log_msg("rejestr wyslal SIGRTMIN do generator");
+            kill(pid_generator, SIGUSR1);
+            sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
+            log_msg(message);
         }
         else
         {
@@ -761,9 +762,9 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
             }
             printf("nowy rejestr uruchomiony: pid=%d\n", getpid());
             log_msg("rejestr uruchomiony");
-            
+
             handle_petent_klon(tab);
-            
+
             cleanup_klon();
             log_msg("rejestr sie zamyka");
             exit(0);
@@ -775,8 +776,9 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     {
         printf("zamknieto rejestr\n");
         log_msg("zamykanie rejestru");
-        kill(pid_generator, SIGRTMIN); // najpierw generator, zeby nie wysylal do nieistniejących procesów
-        log_msg("rejestr wyslal SIGRTMIN do generatora");
+        kill(pid_generator, SIGUSR1); // najpierw generator, zeby nie wysylal do nieistniejących procesów
+        sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
+        log_msg(message);
         kill(pid[1], SIGINT);
         log_msg("rejestr wyslal SIGINT do rejestru");
         waitpid(pid[1], NULL, 0);
@@ -802,8 +804,9 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         {
             pid[2] = temp;
             zmieniono = 1;
-            kill(pid_generator, SIGRTMIN);
-            log_msg("rejestr wyslal SIGRTMIN do generator");
+            kill(pid_generator, SIGUSR1);
+            sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
+            log_msg(message);
         }
         else
         {
@@ -830,8 +833,9 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     {
         printf("zamknieto rejestr\n");
         log_msg("zamykanie rejestru");
-        kill(pid_generator, SIGRTMIN);
-        log_msg("rejestr wyslal SIGRTMIN do generatora");
+        kill(pid_generator, SIGUSR1);
+        sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
+        log_msg(message);
         kill(pid[2], SIGINT);
         log_msg("rejestr wyslal SIGINT do rejestru");
         waitpid(pid[2], NULL, 0);
@@ -857,7 +861,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         log_msg("error ftok send_generator");
         exit(1);
     }
-    
+
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
     {
@@ -866,7 +870,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         cleanup();
         exit(1);
     }
-    
+
     int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
     if (shm_id == -1)
     {
@@ -875,7 +879,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         cleanup();
         exit(1);
     }
-    
+
     key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
     if (shared_mem == (key_t *)-1)
     {
@@ -884,17 +888,17 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         cleanup();
         exit(1);
     }
-    
+
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_GENERATOR, .sem_op = +1, .sem_flg = 0};
-    
+
     for (int i = 0; i < 3; i++)
     {
         log_msg("rejestr blokuje semafor REJESTR");
         while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
         {
             if (errno == EINTR)
-            continue;
+                continue;
             else
             {
                 perror("rejestr semop P");
@@ -903,14 +907,14 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
                 exit(1);
             }
         }
-        
+
         *shared_mem = pid[i];
-        
+
         log_msg("rejestr oddaje semafor GENERATOR");
         while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
         {
             if (errno == EINTR)
-            continue;
+                continue;
             else
             {
                 perror("rejestr semop V");
