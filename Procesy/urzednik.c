@@ -12,10 +12,11 @@
 #include <time.h>
 
 FILE *f;
-time_t *t;
+time_t t;
 struct tm *t_broken;
 
 int CLOSE = 0;
+int CLOSE_GENTLY = 0;
 
 int tab_X[5] = {
     10, // X1
@@ -49,6 +50,7 @@ int main(int argc, char **argv)
     signal(SIGINT, SIGINT_handle);
     srand(time(NULL));
     printf("urzednik\n");
+    raise(SIGSTOP);
 
     key_t key = atoi(argv[1]);
     typ = atoi(argv[2]);
@@ -73,7 +75,7 @@ int main(int argc, char **argv)
 void SIGUSR1_handle(int sig)
 {
     log_msg("urzednik przechwycil SIGUSR1");
-    cleanup();
+    CLOSE_GENTLY = 1;
 }
 
 void SIGUSR2_handle(int sig)
@@ -129,6 +131,20 @@ void handle_petent()
 
         struct msgbuf_urzednik msg;
         msg.mtype = 1;
+        if (CLOSE_GENTLY)
+        {
+            log_msg("urzednik obsluguje petentow i sie zamyka");
+            while (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, WNOHANG) != -1)
+            {
+                sprintf(msg.mtext, "%s", "jestes przetworzony\n");
+                msg.pid = -1;
+                msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);
+            }
+            
+            log_msg("urzednik sie zamyka");
+            cleanup();
+            exit(0);
+        }
         log_msg("urzednik odbiera wiadomosc");
         msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
         pid_t temp = msg.pid;

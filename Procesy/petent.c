@@ -14,7 +14,7 @@
 pid_t pid_self;
 
 FILE *f;
-time_t *t;
+time_t t;
 struct tm *t_broken;
 
 struct msgbuf_rejestr // wiadomość od rejestru

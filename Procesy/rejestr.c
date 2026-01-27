@@ -22,16 +22,16 @@
 volatile sig_atomic_t CLOSE = 0;
 
 FILE *f;
-time_t *t;
+time_t t;
 struct tm *t_broken;
 
 // TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
-    10, // X1
-    10, // X2
-    10, // X3
-    10, // X4
-    10, // X5
+    100, // X1
+    100, // X2
+    100, // X3
+    100, // X4
+    100, // X5
 };
 
 union semun
@@ -66,6 +66,7 @@ int main(int argc, char **argv)
     install_handler(SIGUSR1, SIGUSR1_handle);
     install_handler(SIGUSR2, SIGUSR2_handle);
     install_handler(SIGINT, SIGINT_handle);
+    raise(SIGSTOP);
     srand(time(NULL));
     printf("rejestr %d\n", getpid());
 
@@ -226,8 +227,7 @@ void install_handler(int signo, void (*handler)(int))
 void SIGUSR1_handle(int sig)
 {
     log_msg("rejestr przechwycil SIGUSR1");
-    cleanup();
-    exit(0);
+    CLOSE = 1;
 }
 
 void SIGUSR2_handle(int sig)
@@ -557,9 +557,9 @@ void handle_petent_klon(int pid[])
     *shared_mem = 0;
 
     int n = 0;
+    log_msg("rejestr uruchamia glowna petle");
     while (1) // TODO: poprawic na while(1), to jest test
     {
-        log_msg("rejestr uruchamia glowna petle");
         char message[50];
         sprintf(message, "wartosc CLOSE=%d", CLOSE);
         log_msg(message);
@@ -747,7 +747,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
             // Rodzic zapisuje PID dziecka
             pid[1] = temp;
             zmieniono = 1;
-            kill(pid_generator, SIGUSR1);
+            kill(pid_generator, SIGRTMIN);
             sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
             log_msg(message);
         }
@@ -776,7 +776,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     {
         printf("zamknieto rejestr\n");
         log_msg("zamykanie rejestru");
-        kill(pid_generator, SIGUSR1); // najpierw generator, zeby nie wysylal do nieistniejących procesów
+        kill(pid_generator, SIGRTMIN); // najpierw generator, zeby nie wysylal do nieistniejących procesów
         sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
         log_msg(message);
         kill(pid[1], SIGINT);
@@ -804,7 +804,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         {
             pid[2] = temp;
             zmieniono = 1;
-            kill(pid_generator, SIGUSR1);
+            kill(pid_generator, SIGRTMIN);
             sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
             log_msg(message);
         }
@@ -833,7 +833,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     {
         printf("zamknieto rejestr\n");
         log_msg("zamykanie rejestru");
-        kill(pid_generator, SIGUSR1);
+        kill(pid_generator, SIGRTMIN);
         sprintf(message, "rejestr wyslal SIGRTMIN do generator pid=%d", pid_generator);
         log_msg(message);
         kill(pid[2], SIGINT);

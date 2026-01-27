@@ -27,7 +27,7 @@ key_t p_id[ILE_PROCESOW]; // tablica pid procesow potomnych
 key_t key;
 
 FILE *f;
-time_t *t;
+time_t t;
 struct tm *t_broken;
 
 union semun
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
         exit(1);
     }
     log_msg("main uruchomil dyrektor");
-    
+
     // wysyłamy p_id do dyrektora
     key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
     if (shared_mem == (key_t *)-1)
@@ -163,7 +163,7 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
-    
+
     // wysyłamy
     // printf("main - wysyla\n");
     log_msg("main ustawia semafory");
@@ -199,7 +199,7 @@ int main(int argc, char **argv)
         exit(1);
     }
     log_msg("main ustawil semafory");
-    
+
     log_msg("main wysyla do dyrektor");
     struct sembuf P = {.sem_num = SEMAFOR_MAIN, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
-            continue;
+                continue;
             else
             {
                 perror("main semop P");
@@ -218,14 +218,14 @@ int main(int argc, char **argv)
                 exit(1);
             }
         }
-        
+
         *shared_mem = p_id[i];
-        
+
         log_msg("main oddaje semafor DYREKTOR");
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
-            continue;
+                continue;
             else
             {
                 perror("main semop V");
@@ -236,19 +236,19 @@ int main(int argc, char **argv)
         }
     }
     log_msg("main wyslal do dyrektor");
-    
+
     shmdt(shared_mem);
-    
+
     log_msg("main czeka");
     for (int i = 0; i < ILE_PROCESOW; i++)
-    if (waitpid(p_id[i], NULL, 0) != 0)
-    {
-        printf("proces %d zakonczyl sie porazka\n", p_id[i]);
-        cleanup();
-    }
-    
+        if (waitpid(p_id[i], NULL, 0) != 0)
+        {
+            printf("proces %d zakonczyl sie porazka\n", p_id[i]);
+            cleanup();
+        }
+
     // cleanup();
-    
+
     return 0;
 }
 
@@ -257,14 +257,14 @@ void cleanup()
     log_msg("main wykonuje cleanup");
     int semid = semget(key, 0, 0);
     if (semid != -1)
-    semctl(semid, 0, IPC_RMID);
+        semctl(semid, 0, IPC_RMID);
     // usuwamy dzieloną pamięć
     int shmid = shmget(key, sizeof(key_t), 0);
     if (shmid != -1)
-    shmctl(shmid, IPC_RMID, NULL);
+        shmctl(shmid, IPC_RMID, NULL);
     // zamykamy procesy pochodne SIGINTem
     for (int i = 0; i < ILE_PROCESOW; i++)
-    kill(p_id[i], SIGINT);
+        kill(p_id[i], SIGINT);
     fclose(f);
 }
 

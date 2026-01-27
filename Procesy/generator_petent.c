@@ -22,7 +22,7 @@
 volatile sig_atomic_t ODEBRAC = 0;
 
 FILE *f;
-time_t *t;
+time_t t;
 struct tm *t_broken;
 
 union semun
@@ -47,6 +47,7 @@ void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
+    raise(SIGSTOP);
     f = fopen("./Logi/petent", "w"); // otwieramy pusty plik dla petentow
     if (!f)
     {
@@ -67,7 +68,7 @@ int main(int argc, char **argv)
 
     /* SIGUSR1 */
     memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = SIGRTMIN_handle;
+    sa.sa_handler = SIGUSR1_handle;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGUSR1, &sa, NULL);
@@ -167,7 +168,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
-            continue;
+                continue;
             else
             {
                 perror("generator semop P");
@@ -175,9 +176,9 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
                 return 1;
             }
         }
-        
+
         result[i] = (int)*shared_mem; // TODO: przesyłanie int a odbieranie key_t jest głupie
-        
+
         log_msg("generator oddaje semafor DYREKTOR");
         while (semop(sems, &V, 1) == -1)
         {
@@ -346,10 +347,10 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
         log_msg("error shmat main");
         exit(1);
     }
-    
+
     struct sembuf P = {.sem_num = SEMAFOR_GENERATOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
-    
+
     log_msg("generator odbiera dane");
     for (int i = 1; i < 4; i++)
     {
@@ -357,7 +358,7 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
-            continue;
+                continue;
             else
             {
                 perror("generator semop P");
@@ -365,14 +366,14 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
                 exit(1);
             }
         }
-        
+
         pid[i] = *shared_mem;
-        
+
         log_msg("generator oddaje semafor REJESTR");
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
-            continue;
+                continue;
             else
             {
                 perror("generator semop V");
@@ -390,7 +391,7 @@ int czy_limity_puste()
     log_msg("generator sprawdza limity urzednikow");
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
-    
+
     key_t key = ftok(".", 1);
     if (key == -1)
     {
@@ -405,7 +406,7 @@ int czy_limity_puste()
         log_msg("error ftok tabx czy_limity");
         exit(1);
     }
-    
+
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
     {
@@ -413,10 +414,10 @@ int czy_limity_puste()
         log_msg("error semget cz_limity");
         exit(1);
     }
-    
+
     log_msg("generator blokuje semafor REJESTR_DWA");
     semop(sems, &P, 1);
-    
+
     int shm_id = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
     if (shm_id == -1)
     {
@@ -424,26 +425,26 @@ int czy_limity_puste()
         semop(sems, &V, 1);
         return 0;
     }
-    
+
     key_t *tabx = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
     if (tabx == (key_t *)-1)
     {
         perror("generator shmat");
         exit(1);
     }
-    
+
     int flaga = 1;
-    
+
     for (int i = 0; i < 5; i++)
-    if (tabx[i] != 0)
-    {
-        flaga = 0;
-        break;
-    }
+        if (tabx[i] != 0)
+        {
+            flaga = 0;
+            break;
+        }
     log_msg("generator oddaje semafor REJESTR_DWA");
     semop(sems, &V, 1);
     shmdt(tabx);
-    
+
     return flaga;
 }
 
