@@ -32,6 +32,8 @@
 // TODO: proces usuwający zombie
 // TODO: generator nie zawsze przechwytuje sygnały
 // TODO: urzędnicy czasami kończą się bez cleanup
+// TODO: urzędnicy mogą odebrać wiadomości z pid=-1, generalnie przemyśleć ich logikę
+// TODO: urzędnicy czasami nie czyszczą zasobów przy SIGUSR1
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0

@@ -149,11 +149,13 @@ void SIGUSR2_handle(int sig)
 {
     printf("generator przychwycil SIGUSR2\n");
     log_msg("generator przechwycil SIGUSR2");
+    exit(0);
 }
 
 void SIGRTMIN_handle(int sig)
 {
-    log_msg("generator przechwycil SIGRTMIN");
+    // async unsafe, program non stop sie wiesza po 1-2 odebraniach
+    // log_msg("generator przechwycil SIGRTMIN");
     ODEBRAC = 1;
 }
 

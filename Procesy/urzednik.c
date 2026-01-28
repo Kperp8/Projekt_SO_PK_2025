@@ -74,19 +74,19 @@ int main(int argc, char **argv)
 
 void SIGUSR1_handle(int sig)
 {
-    log_msg("urzednik przechwycil SIGUSR1");
+    // log_msg("urzednik przechwycil SIGUSR1");
     CLOSE_GENTLY = 1;
 }
 
 void SIGUSR2_handle(int sig)
 {
-    log_msg("urzednik przechwycil SIGUSR2");
+    // log_msg("urzednik przechwycil SIGUSR2");
     cleanup();
 }
 
 void SIGINT_handle(int sig)
 {
-    log_msg("urzednik przechwycil SIGINT");
+    // log_msg("urzednik przechwycil SIGINT");
     CLOSE = 1;
 }
 
