@@ -10,30 +10,20 @@
 #include <sys/wait.h>
 #include <time.h>
 
-// TODO: procesów urzędnik jest 6!!! poprawić
 // TODO: pełne działanie petentów
-// TODO: zrobienie logów
-// TODO: mechanizm czyszczący w przypadku crashu innego procesu, potencjalnie jego reload?
-// TODO: przemyśleć jeszcze raz komunikację między rejerstrem a generatorem
 // TODO: typy jak key_t i pid_t są używane niespójnie
 // TODO: podzielić kod w main.c na funkcjie
 // TODO: w wielu miejscach zła filozofia funkcji asynchronicznych, głównie cleanup() wywoływany w handlerze
 // TODO: petenci powinni mieć limit czasu przez jaki istnieją
 // TODO: urzędnicy mają niepełną funkcjonalność
-// TODO: brak logiki obsługi sygnałów SIGUSR
 // TODO: w rejestrze dużo powtarzającego się kodu
-// TODO: czasami uruchomienie programu nie uruchamia rejestru
-// TODO: rejestr nie zawsze czyści swoje zasoby
 // TODO: głupie nazwy w rejestrze
 // TODO: skoro tab_X i tak jest w pamięci dzielonej, równie dobrze dyrektor może go zapisać
 // TODO: rejestr jest super brzydki
 // TODO: obsługa edge-casuw
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 // TODO: proces usuwający zombie
-// TODO: generator nie zawsze przechwytuje sygnały
-// TODO: urzędnicy czasami kończą się bez cleanup
 // TODO: urzędnicy mogą odebrać wiadomości z pid=-1, generalnie przemyśleć ich logikę
-// TODO: urzędnicy czasami nie czyszczą zasobów przy SIGUSR1
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0

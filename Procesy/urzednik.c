@@ -15,16 +15,7 @@ FILE *f;
 time_t t;
 struct tm *t_broken;
 
-int CLOSE = 0;
-int CLOSE_GENTLY = 0;
-
-int tab_X[5] = {
-    10, // X1
-    10, // X2
-    10, // X3
-    10, // X4
-    10, // X5
-};
+volatile sig_atomic_t CLOSE_GENTLY = 0;
 
 int typ;
 
@@ -82,12 +73,14 @@ void SIGUSR2_handle(int sig)
 {
     // log_msg("urzednik przechwycil SIGUSR2");
     cleanup();
+    exit(0);
 }
 
 void SIGINT_handle(int sig)
 {
     // log_msg("urzednik przechwycil SIGINT");
-    CLOSE = 1;
+    cleanup();
+    exit(0);
 }
 
 void handle_petent()
@@ -120,14 +113,7 @@ void handle_petent()
     log_msg("urzednik zaczyna glowna petle");
     while (1)
     {
-        sprintf(s_klucz, "wartosc CLOSE=%d", CLOSE);
-        log_msg(s_klucz);
-        if (CLOSE)
-        {
-            log_msg("urzednik sie zamyka");
-            cleanup();
-            exit(0);
-        }
+        sprintf(s_klucz, "wartosc CLOSE_GENTLY=%d", CLOSE_GENTLY);
 
         struct msgbuf_urzednik msg;
         msg.mtype = 1;
