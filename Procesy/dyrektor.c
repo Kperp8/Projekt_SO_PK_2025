@@ -24,6 +24,11 @@
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 // TODO: proces usuwający zombie
 // TODO: urzędnicy mogą odebrać wiadomości z pid=-1, generalnie przemyśleć ich logikę
+// TODO: niektórzy petenci mają błąd przy msgget
+// TODO: jeśli urzędnik dostanie wiadomość z pid=-1, to msgsnd zwróci błąd typu i wykraczy
+// TODO: zmienić main, aby przeprowadzał kilka dni pracy
+// TODO: na koniec każdego dnia main niech uruchamia skrypt bash, który podsumowuje dzień
+// TODO: niektóre procesy uruchamiają cleanup() kilka razy i zwracają błąd, mimo że wszystko ok
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0

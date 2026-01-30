@@ -120,23 +120,35 @@ void handle_petent()
         if (CLOSE_GENTLY)
         {
             log_msg("urzednik obsluguje petentow i sie zamyka");
-            while (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, WNOHANG) != -1)
+            while (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0, WNOHANG) != -1)
             {
                 sprintf(msg.mtext, "%s", "jestes przetworzony\n");
+                msg.mtype = msg.pid;
                 msg.pid = -1;
                 msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);
             }
-            
+
             log_msg("urzednik sie zamyka");
             cleanup();
             exit(0);
         }
         log_msg("urzednik odbiera wiadomosc");
-        msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+        if (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0) == -1) // TODO: obsłużyć jeśli kolejka pusta itd.
+        {
+            if (errno == EINTR)
+                continue;
+            else
+            {
+                perror("urzednik msgrcv");
+                log_msg("error msgrcv");
+                cleanup();
+                exit(1);
+            }
+        }
         pid_t temp = msg.pid;
         sprintf(s_klucz, "urzednik odebral wiadomosc od pid=%d", temp);
         log_msg(s_klucz);
-        msg.mtype = temp;
+        msg.mtype = temp > 0 ? temp : 3; // nie powinien być == -1, to był bug
         if (typ < 4)
         {
             int l = rand() % 10;

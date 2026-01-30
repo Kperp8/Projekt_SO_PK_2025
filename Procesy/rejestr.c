@@ -215,7 +215,7 @@ void install_handler(int signo, void (*handler)(int))
     struct sigaction sa;
     sa.sa_handler = handler;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0; // bez SA_RESTART – zachowujesz obecne zachowanie EINTR
+    sa.sa_flags = 0;
 
     if (sigaction(signo, &sa, NULL) == -1)
     {
@@ -226,7 +226,7 @@ void install_handler(int signo, void (*handler)(int))
 
 void SIGUSR1_handle(int sig)
 {
-    log_msg("rejestr przechwycil SIGUSR1");
+    // log_msg("rejestr przechwycil SIGUSR1");
     CLOSE = 1;
 }
 
@@ -239,7 +239,7 @@ void SIGUSR2_handle(int sig)
 
 void SIGINT_handle(int sig)
 {
-    log_msg("rejestr przechwycil SIGINT");
+    // log_msg("rejestr przechwycil SIGINT");
     CLOSE = 1;
 }
 

@@ -179,7 +179,7 @@ void handle_urzednik(pid_t u_pid)
     msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
     if (msg.pid != -1)
     {
-        if (strcmp(msg.mtext, "prosze udac sie do kasy\n"))
+        if (!strcmp(msg.mtext, "prosze udac sie do kasy\n"))
         {
             // proces idzie uiścić zapłate i wraca
             sprintf(message, "%d idzie do kasy", pid_self);
