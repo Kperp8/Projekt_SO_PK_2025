@@ -137,8 +137,15 @@ void handle_petent()
         if (CLOSE_GENTLY)
         {
             log_msg("urzednik obsluguje petentow i sie zamyka");
-            while (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0, WNOHANG) != -1)
+            while (1)
             {
+                if (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, IPC_NOWAIT) == -1)
+                {
+                    if (errno == ENOMSG)
+                        break;
+                    else
+                        break;
+                }
                 sprintf(msg.mtext, "%s", "jestes przetworzony\n");
                 msg.mtype = msg.pid;
                 msg.pid = -1;

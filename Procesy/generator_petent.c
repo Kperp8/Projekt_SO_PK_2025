@@ -243,7 +243,7 @@ void generate_petent(int N, key_t rejestr_pid[])
         snprintf(r_pid, sizeof(r_pid), "%d", pid_to_use);
 
         // Tworzymy proces petenta, jeśli jest miejsce
-        if (active_petents < N)
+        if (active_petents < N && !ODEBRAC)
         {
             log_msg("generator tworzy petenta");
             key_t pid = fork();
@@ -425,8 +425,9 @@ int czy_limity_puste()
     if (shm_id == -1)
     {
         perror("generator shmget tabx");
+        log_msg("generator oddaje semafor REJESTR_DWA");
         semop(sems, &V, 1);
-        return 0;
+        return 1;
     }
 
     key_t *tabx = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
@@ -439,7 +440,7 @@ int czy_limity_puste()
     int flaga = 1;
 
     for (int i = 0; i < 5; i++)
-        if (tabx[i] != 0)
+        if (tabx[i] > 0)
         {
             flaga = 0;
             break;

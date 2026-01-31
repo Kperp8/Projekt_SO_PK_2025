@@ -27,11 +27,11 @@ struct tm *t_broken;
 
 // TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
-    100, // X1
-    100, // X2
-    100, // X3
-    100, // X4
-    100, // X5
+    150, // X1
+    600, // X2
+    300, // X3
+    400, // X4
+    1000, // X5
 };
 
 union semun
@@ -436,12 +436,15 @@ void handle_petent(int pid[])
             if (n == 50) // TODO: EKSTREMALNIE głupie
                 break;
         } while (tabx[i] == 0);
+        // if(tabx[i] != 0)
         tabx[i]--;
         log_msg("rejestr oddaje semafor REJESTR_DWA");
         semop(sems_2, &V, 1);
         sprintf(message, "rejestr wybral i=%d", i);
         log_msg(message);
 
+        // if(tabx[i] == 0)
+        // return;
         msg.pid = pid[i];
         sprintf(message, "rejestr wybral pid=%d", pid[i]);
         log_msg(message);
@@ -567,6 +570,36 @@ void handle_petent_klon(int pid[])
         msg.mtype = 1;
         if (CLOSE)
         {
+            log_msg("rejestr czysci kolejke i sie zamyka");
+            while (msgrcv(msgid, &msg, sizeof(pid_t), 1, IPC_NOWAIT) != -1)
+            {
+                msg.mtype = msg.pid;
+                struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
+                struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+                semop(sems_2, &P, 1);
+                int i, flaga = 0;
+                do
+                {
+                    i = rand() % 10;
+                    i = i < 4 ? i : 4;
+                    if (tabx[i] == 0)
+                        n++;
+                    if (n == 50) // TODO: EKSTREMALNIE głupie
+                    {
+                        flaga = 1;
+                        break;
+                    }
+                } while (tabx[i] == 0);
+                if (!flaga)
+                    tabx[i]--;
+                semop(sems_2, &V, 1);
+                if (flaga)
+                    break;
+
+                msg.pid = pid[i];
+                msgsnd(msgid, &msg, sizeof(pid_t), IPC_NOWAIT);
+            }
+
             cleanup_klon();
             exit(0);
         }
@@ -654,11 +687,6 @@ void cleanup()
     else
         perror("rejestr schmctl cleanup");
 
-    semid = semget(key, 0, 0);
-    if (semid != -1)
-        semctl(semid, 0, IPC_RMID);
-    else
-        perror("rejestr semctl cleanup");
     fclose(f);
 }
 
@@ -751,6 +779,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         }
         else
         {
+            srand(time(NULL) ^ getpid());
             f = fopen("./Logi/rejestr_1", "a");
             if (!f)
             {
@@ -808,6 +837,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         }
         else
         {
+            srand(time(NULL) ^ getpid());
             f = fopen("./Logi/rejestr_2", "a");
             if (!f)
             {

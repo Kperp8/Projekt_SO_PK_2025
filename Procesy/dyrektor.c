@@ -31,6 +31,7 @@
 // TODO: niektóre procesy uruchamiają cleanup() kilka razy i zwracają błąd, mimo że wszystko ok
 // TODO: okazjonalnie generator nie przestaje działać po osiągnięciu limitów
 // TODO: czasami urzędnicy nie kończą z cleanup()
+// TODO: czasami generator wpada w nieskończoną pętlę
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
