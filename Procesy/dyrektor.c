@@ -57,8 +57,9 @@ union semun
     unsigned short *array;
 };
 
-void cleanup();
 void SIGINT_handle(int sig);
+
+void cleanup();
 int recieve_main(int sems, key_t *shared_mem);
 int send_generator(int sems, key_t *shared_mem);
 int send_rejestr(int sems, key_t *shared_mem);

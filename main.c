@@ -41,6 +41,9 @@ void SIGINT_handle(int sig);
 
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
 void cleanup();
+void start_procesy();
+void init_sem(int sems);
+void send_dyrektor(int sems, key_t *shared_mem);
 void log_msg(char *msg);
 
 int main(int argc, char **argv)
@@ -56,7 +59,6 @@ int main(int argc, char **argv)
     }
     log_msg("main uruchomiony");
 
-    int n = -1;
     // tworzymy klucz
     key = ftok(".", 1);
     // printf("key - %d\n", key);
@@ -66,8 +68,6 @@ int main(int argc, char **argv)
         log_msg("error ftok main");
         exit(1);
     }
-    char key_str[sizeof(key_t) * 8];
-    sprintf(key_str, "%d", key);
 
     // tworzymy semafory
     int sems = semget(key, ILE_SEMAFOROW, IPC_CREAT | 0666);
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    // tworzymy pamiec dzieloną dla dyrektora
+    // tworzymy pamiec dzieloną
     int shmid = shmget(key, sizeof(key_t), IPC_CREAT | 0666);
     if (shmid == -1)
     {
@@ -88,6 +88,63 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+
+    key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
+    if (shared_mem == (key_t *)-1)
+    {
+        perror("main shmat");
+        log_msg("error shmat");
+        cleanup();
+        exit(1);
+    }
+
+    start_procesy();
+
+    init_sem(sems);
+
+    send_dyrektor(sems, shared_mem);
+
+    shmdt(shared_mem);
+
+    log_msg("main czeka");
+    for (int i = 0; i < ILE_PROCESOW; i++)
+        if (waitpid(p_id[i], NULL, 0) != 0)
+        {
+            printf("proces %d zakonczyl sie porazka\n", p_id[i]);
+            cleanup();
+        }
+
+    return 0;
+}
+
+void cleanup()
+{
+    log_msg("main wykonuje cleanup");
+    int semid = semget(key, 0, 0);
+    if (semid != -1)
+        semctl(semid, 0, IPC_RMID);
+    // usuwamy dzieloną pamięć
+    int shmid = shmget(key, sizeof(key_t), 0);
+    if (shmid != -1)
+        shmctl(shmid, IPC_RMID, NULL);
+    // zamykamy procesy pochodne SIGINTem
+    kill(p_id[8], SIGINT);
+    fclose(f);
+}
+
+void SIGINT_handle(int sig)
+{
+    printf("\nprzechwycono SIGINT\n");
+    log_msg("main przechwycil SIGINT");
+    cleanup();
+    exit(0);
+}
+
+void start_procesy()
+{
+    int n = -1;
+    char key_str[sizeof(key_t) * 8];
+    sprintf(key_str, "%d", key);
 
     // uruchamiamy procesy urzednik
     log_msg("main uruchamia urzednik");
@@ -133,14 +190,6 @@ int main(int argc, char **argv)
     }
     log_msg("main uruchomil generator");
 
-    // if (p_id[n] == 0)
-    // {
-    //     execl("Procesy/generator_petent", "Procesy/generator_petent", key_str, NULL);
-    //     perror("main - execl generator");
-    //     cleanup();
-    //     exit(1);
-    // }
-
     // uruchamiamy proces dyrektor
     log_msg("main uruchamia dyrektor");
     p_id[++n] = fork();
@@ -153,19 +202,10 @@ int main(int argc, char **argv)
         exit(1);
     }
     log_msg("main uruchomil dyrektor");
+}
 
-    // wysyłamy p_id do dyrektora
-    key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
-    if (shared_mem == (key_t *)-1)
-    {
-        perror("main shmat");
-        log_msg("error shmat");
-        cleanup();
-        exit(1);
-    }
-
-    // wysyłamy
-    // printf("main - wysyla\n");
+void init_sem(int sems)
+{
     log_msg("main ustawia semafory");
     union semun arg;
     arg.val = 1;
@@ -199,7 +239,10 @@ int main(int argc, char **argv)
         exit(1);
     }
     log_msg("main ustawil semafory");
+}
 
+void send_dyrektor(int sems, key_t *shared_mem)
+{
     log_msg("main wysyla do dyrektor");
     struct sembuf P = {.sem_num = SEMAFOR_MAIN, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = +1, .sem_flg = 0};
@@ -236,43 +279,6 @@ int main(int argc, char **argv)
         }
     }
     log_msg("main wyslal do dyrektor");
-
-    shmdt(shared_mem);
-
-    log_msg("main czeka");
-    for (int i = 0; i < ILE_PROCESOW; i++)
-        if (waitpid(p_id[i], NULL, 0) != 0)
-        {
-            printf("proces %d zakonczyl sie porazka\n", p_id[i]);
-            cleanup();
-        }
-
-    // cleanup();
-
-    return 0;
-}
-
-void cleanup()
-{
-    log_msg("main wykonuje cleanup");
-    int semid = semget(key, 0, 0);
-    if (semid != -1)
-        semctl(semid, 0, IPC_RMID);
-    // usuwamy dzieloną pamięć
-    int shmid = shmget(key, sizeof(key_t), 0);
-    if (shmid != -1)
-        shmctl(shmid, IPC_RMID, NULL);
-    // zamykamy procesy pochodne SIGINTem
-    kill(p_id[8], SIGINT);
-    fclose(f);
-}
-
-void SIGINT_handle(int sig)
-{
-    printf("\nprzechwycono SIGINT\n");
-    log_msg("main przechwycil SIGINT");
-    cleanup();
-    exit(0);
 }
 
 void log_msg(char *msg)
