@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     }
     printf("%s %s %d pid %d\n", argv[2], argv[3], atoi(argv[4]), pid_self);
     char message[100];
-    sprintf(message, "petent %s %s pid %d r_pid", argv[2], argv[3], pid_self, atoi(argv[1]));
+    sprintf(message, "petent %s %s pid %d r_pid %d", argv[2], argv[3], pid_self, atoi(argv[1]));
     log_msg(message);
     // idziemy do rejestru
     pid_t r_pid = atoi(argv[1]);
@@ -130,7 +130,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     semop(sems, &V, 1);
     sprintf(message, "%d odbiera wiadomosc", pid_self);
     log_msg(message);
-    msgrcv(msgid, &msg, sizeof(pid_t), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    msgrcv(msgid, &msg, sizeof(pid_t), pid_self, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
     sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
     log_msg(message);
     semop(sems, &P, 1);

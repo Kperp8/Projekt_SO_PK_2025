@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -29,6 +31,7 @@ struct msgbuf_urzednik // wiadomość od urzednika
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 void SIGINT_handle(int sig);
+void install_handler(int signo, void (*handler)(int));
 
 void handle_petent();
 void cleanup();
@@ -36,9 +39,9 @@ void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
-    signal(SIGUSR1, SIGUSR1_handle);
-    signal(SIGUSR2, SIGUSR2_handle);
-    signal(SIGINT, SIGINT_handle);
+    install_handler(SIGUSR1, SIGUSR1_handle);
+    install_handler(SIGUSR2, SIGUSR2_handle);
+    install_handler(SIGINT, SIGINT_handle);
     srand(time(NULL));
     printf("urzednik\n");
     raise(SIGSTOP);
@@ -61,6 +64,20 @@ int main(int argc, char **argv)
 
     cleanup();
     return 0;
+}
+
+void install_handler(int signo, void (*handler)(int))
+{
+    struct sigaction sa;
+    sa.sa_handler = handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(signo, &sa, NULL) == -1)
+    {
+        perror("sigaction");
+        exit(1);
+    }
 }
 
 void SIGUSR1_handle(int sig)
@@ -169,7 +186,7 @@ void handle_petent()
             if (l < 4)
             {
                 sprintf(msg.mtext, "%s", "prosze udac sie do urzednika\n");
-                msg.pid = typ == 4 ? getpid() - rand() % 4 - 1 : rand() % 4 - 2;
+                msg.pid = typ == 4 ? getpid() - rand() % 4 - 1 : getpid() - rand() % 4 - 2;
             }
             else
             {
@@ -185,24 +202,24 @@ void handle_petent()
 void cleanup()
 {
     log_msg("urzednik uruchamia cleanup");
-    key_t key = ftok(".", getpid());
+    key_t key = typ == 5 ? ftok(".", getpid() - 1) : ftok(".", getpid());
     if (key == -1)
     {
         perror("urzednik ftok");
-        exit(1);
+        // exit(1);
     }
 
-    int msgid = msgget(key, IPC_CREAT | 0666);
+    int msgid = msgget(key, 0);
     if (msgid == -1)
     {
         perror("urzednik msgget");
-        exit(1);
+        // exit(1);
     }
 
     if (msgctl(msgid, IPC_RMID, NULL) == -1)
     {
         perror("urzednik msgctl");
-        exit(1);
+        // exit(1);
     }
     fclose(f);
 }

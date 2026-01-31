@@ -263,8 +263,7 @@ void cleanup()
     if (shmid != -1)
         shmctl(shmid, IPC_RMID, NULL);
     // zamykamy procesy pochodne SIGINTem
-    for (int i = 0; i < ILE_PROCESOW; i++)
-        kill(p_id[i], SIGINT);
+    kill(p_id[8], SIGINT);
     fclose(f);
 }
 

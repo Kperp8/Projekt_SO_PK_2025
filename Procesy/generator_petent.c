@@ -141,15 +141,15 @@ int main(int argc, char **argv)
 
 void SIGUSR1_handle(int sig)
 {
-    printf("generator przychwycil SIGUSR1\n");
-    log_msg("generator przechwycil SIGUSR1");
+    // printf("generator przychwycil SIGUSR1\n");
+    // log_msg("generator przechwycil SIGUSR1");
     exit(0);
 }
 
 void SIGUSR2_handle(int sig)
 {
-    printf("generator przychwycil SIGUSR2\n");
-    log_msg("generator przechwycil SIGUSR2");
+    // printf("generator przychwycil SIGUSR2\n");
+    // log_msg("generator przechwycil SIGUSR2");
     exit(0);
 }
 

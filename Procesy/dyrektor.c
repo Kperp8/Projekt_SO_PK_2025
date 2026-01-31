@@ -29,6 +29,8 @@
 // TODO: zmienić main, aby przeprowadzał kilka dni pracy
 // TODO: na koniec każdego dnia main niech uruchamia skrypt bash, który podsumowuje dzień
 // TODO: niektóre procesy uruchamiają cleanup() kilka razy i zwracają błąd, mimo że wszystko ok
+// TODO: okazjonalnie generator nie przestaje działać po osiągnięciu limitów
+// TODO: czasami urzędnicy nie kończą z cleanup()
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0

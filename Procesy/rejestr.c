@@ -160,7 +160,6 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
-    log_msg("error semctl SETVAL");
 
     key_t key_tabx = ftok(".", 2);
     if (key_tabx == -1)
@@ -388,9 +387,9 @@ void handle_petent(int pid[])
     rejestry[0] = getpid();
 
     int n = 0;
+    log_msg("rejestr zaczyna glowna petle");
     while (1) // TODO: poprawic na while(1), to jest test
     {
-        log_msg("rejestr zaczyna glowna petle");
         // sleep(1);
         char message[50];
         sprintf(message, "wartosc CLOSE=%d", CLOSE);
@@ -407,7 +406,7 @@ void handle_petent(int pid[])
         if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
         {
             if (errno == EINTR)
-                break;
+                continue;
             else
             {
                 perror("rejestr msgrcv");
@@ -438,10 +437,10 @@ void handle_petent(int pid[])
                 break;
         } while (tabx[i] == 0);
         tabx[i]--;
-        sprintf(message, "rejestr wybral i=%d", i);
-        log_msg(message);
         log_msg("rejestr oddaje semafor REJESTR_DWA");
         semop(sems_2, &V, 1);
+        sprintf(message, "rejestr wybral i=%d", i);
+        log_msg(message);
 
         msg.pid = pid[i];
         sprintf(message, "rejestr wybral pid=%d", pid[i]);
@@ -564,19 +563,18 @@ void handle_petent_klon(int pid[])
         sprintf(message, "wartosc CLOSE=%d", CLOSE);
         log_msg(message);
         // sleep(1);
+        struct msgbuf_rejestr msg;
+        msg.mtype = 1;
         if (CLOSE)
         {
             cleanup_klon();
-            log_msg("rejestr konczy prace");
             exit(0);
         }
-        struct msgbuf_rejestr msg;
-        msg.mtype = 1;
         log_msg("rejestr odbiera wiadomosc");
         if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
         {
             if (errno == EINTR)
-                break;
+                continue;
             else
             {
                 perror("rejestr msgrcv");
@@ -666,7 +664,7 @@ void cleanup()
 
 void cleanup_klon()
 {
-    log_msg("rejestr oddaje cleanup_klon");
+    log_msg("rejestr uruchamia cleanup_klon");
     key_t key = ftok(".", getpid());
     if (key == -1)
         perror("rejestr klon ftok cleanup");
@@ -760,8 +758,8 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
                 cleanup_klon();
                 exit(1);
             }
-            printf("nowy rejestr uruchomiony: pid=%d\n", getpid());
-            log_msg("rejestr uruchomiony");
+            sprintf(message, "rejestr uruchomiony pid=%d", getpid());
+            log_msg(message);
 
             handle_petent_klon(tab);
 
@@ -817,8 +815,8 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
                 cleanup_klon();
                 exit(1);
             }
-            printf("nowy rejestr uruchomiony: pid=%d\n", getpid());
-            log_msg("rejestr uruchomiony");
+            sprintf(message, "rejestr uruchomiony pid=%d", getpid());
+            log_msg(message);
 
             handle_petent_klon(tab);
 
