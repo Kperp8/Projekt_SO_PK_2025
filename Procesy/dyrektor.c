@@ -12,10 +12,6 @@
 
 // TODO: pełne działanie petentów
 // TODO: typy jak key_t i pid_t są używane niespójnie
-// TODO: podzielić kod w main.c na funkcjie
-// TODO: w wielu miejscach zła filozofia funkcji asynchronicznych, głównie cleanup() wywoływany w handlerze
-// TODO: petenci powinni mieć limit czasu przez jaki istnieją
-// TODO: urzędnicy mają niepełną funkcjonalność
 // TODO: w rejestrze dużo powtarzającego się kodu
 // TODO: głupie nazwy w rejestrze
 // TODO: skoro tab_X i tak jest w pamięci dzielonej, równie dobrze dyrektor może go zapisać
@@ -23,13 +19,9 @@
 // TODO: obsługa edge-casuw
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 // TODO: proces usuwający zombie
-// TODO: urzędnicy mogą odebrać wiadomości z pid=-1, generalnie przemyśleć ich logikę
-// TODO: niektórzy petenci mają błąd przy msgget
-// TODO: jeśli urzędnik dostanie wiadomość z pid=-1, to msgsnd zwróci błąd typu i wykraczy
 // TODO: zmienić main, aby przeprowadzał kilka dni pracy
 // TODO: na koniec każdego dnia main niech uruchamia skrypt bash, który podsumowuje dzień
 // TODO: niektóre procesy uruchamiają cleanup() kilka razy i zwracają błąd, mimo że wszystko ok
-// TODO: okazjonalnie generator nie przestaje działać po osiągnięciu limitów
 // TODO: czasami urzędnicy nie kończą z cleanup()
 // TODO: czasami generator wpada w nieskończoną pętlę
 

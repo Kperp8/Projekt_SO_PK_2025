@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 
     install_handler(SIGUSR1, SIGUSR1_handle);
     install_handler(SIGUSR2, SIGUSR2_handle);
-    install_handler(SIGRTMIN, SIGRTMIN);
+    install_handler(SIGRTMIN, SIGRTMIN_handle);
 
     srand(time(NULL));
 
