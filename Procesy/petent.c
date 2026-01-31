@@ -26,7 +26,7 @@ struct msgbuf_rejestr // wiadomość od rejestru
 struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
-    char mtext[30]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
+    char mtext[30];
     pid_t pid;
 } __attribute__((packed));
 
@@ -50,12 +50,9 @@ int main(int argc, char **argv)
     char message[100];
     sprintf(message, "petent %s %s pid %d r_pid %d", argv[2], argv[3], pid_self, atoi(argv[1]));
     log_msg(message);
-    // idziemy do rejestru
     pid_t r_pid = atoi(argv[1]);
     printf("petent r_pid=%d\n", r_pid);
-    // odbieramy pid urzednika
     pid_t u_pid = recieve_rejestr(r_pid);
-    // idziemy do urzednika
     handle_urzednik(u_pid);
     return 0;
 }
@@ -66,7 +63,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     sprintf(message, "%d uruchamia recieve_rejestr", pid_self);
     log_msg(message);
     // tworzymy klucz z maską pid rejestru
-    key_t key = ftok(".", r_pid); // TODO: rejestr ma key, może lepiej go przekazywać tutaj
+    key_t key = ftok(".", r_pid);
     if (key == -1)
     {
         perror("petent ftok");
@@ -75,7 +72,6 @@ pid_t recieve_rejestr(pid_t r_pid)
         exit(1);
     }
 
-    // dostajemy sie do kolejki
     int msgid = msgget(key, 0);
     if (msgid == -1)
     {
@@ -85,7 +81,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(long), 0); // pamiec
+    int shm_id = shmget(key, sizeof(long), 0);
     if (shm_id == -1)
     {
         perror("petent shmget");
@@ -94,7 +90,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         exit(1);
     }
 
-    long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    long *shared_mem = (long *)shmat(shm_id, NULL, 0);
     if (shared_mem == (long *)-1)
     {
         perror("petent shmat");
@@ -103,7 +99,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         exit(1);
     }
 
-    int sems = semget(key, 1, 0); // semafory
+    int sems = semget(key, 1, 0);
     if (sems == -1)
     {
         perror("petent semget");
@@ -120,7 +116,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     msg.pid = getpid();
     sprintf(message, "%d wysyla wiadomosc do rejestr", pid_self);
     log_msg(message);
-    msgsnd(msgid, &msg, sizeof(pid_t), 0); // TODO: obsługa błędów
+    msgsnd(msgid, &msg, sizeof(pid_t), 0);
     sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
     log_msg(message);
     semop(sems, &P, 1);
@@ -130,7 +126,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     semop(sems, &V, 1);
     sprintf(message, "%d odbiera wiadomosc", pid_self);
     log_msg(message);
-    msgrcv(msgid, &msg, sizeof(pid_t), pid_self, 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    msgrcv(msgid, &msg, sizeof(pid_t), pid_self, 0);
     sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
     log_msg(message);
     semop(sems, &P, 1);
@@ -147,7 +143,6 @@ void handle_urzednik(pid_t u_pid)
     char message[100];
     sprintf(message, "%d uruchamia handle_urzednik pid=%d", pid_self, u_pid);
     log_msg(message);
-    // printf("petent dostal pid - %d\n", u_pid);
     // tworzymy klucz z maską pid rejestru
     key_t key = ftok(".", u_pid);
     if (key == -1)
@@ -158,7 +153,6 @@ void handle_urzednik(pid_t u_pid)
         exit(1);
     }
 
-    // dostajemy sie do kolejki
     int msgid = msgget(key, 0);
     if (msgid == -1)
     {
@@ -173,10 +167,10 @@ void handle_urzednik(pid_t u_pid)
     msg.pid = getpid();
     sprintf(message, "%d wysyla wiadomosc do urzednik", pid_self);
     log_msg(message);
-    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0); // TODO: obsługa błędów
+    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);
     sprintf(message, "%d odbiera wiadomosc", pid_self);
     log_msg(message);
-    msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0); // TODO: obsłużyć jeśli kolejka pusta itd.
+    msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0);
     if (msg.pid != -1)
     {
         if (!strcmp(msg.mtext, "prosze udac sie do kasy\n"))

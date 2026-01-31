@@ -25,7 +25,6 @@ FILE *f;
 time_t t;
 struct tm *t_broken;
 
-// TODO: pomyśleć, czy lepiec tego nie odbierać od kogoś innego, np main
 int tab_X[5] = {
     150, // X1
     600, // X2
@@ -98,7 +97,7 @@ int main(int argc, char **argv)
     key_t key;
     key = atoi(argv[1]);
 
-    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    int sems = semget(key, ILE_SEMAFOROW, 0);
     if (sems == -1)
     {
         perror("rejestr semget");
@@ -106,7 +105,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    int shm_id = shmget(key, sizeof(key_t), 0);
     if (shm_id == -1)
     {
         perror("rejestr shmget 1");
@@ -114,7 +113,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
     if (shared_mem == (key_t *)-1)
     {
         perror("rejestr shmat");
@@ -128,7 +127,7 @@ int main(int argc, char **argv)
     {
         perror("rejestr recieve dyrektor");
         log_msg("error recieve_dyrektor");
-        exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
+        exit(1);
     }
     shmdt(shared_mem);
 
@@ -225,7 +224,6 @@ void install_handler(int signo, void (*handler)(int))
 
 void SIGUSR1_handle(int sig)
 {
-    // log_msg("rejestr przechwycil SIGUSR1");
     CLOSE = 1;
 }
 
@@ -238,7 +236,6 @@ void SIGUSR2_handle(int sig)
 
 void SIGINT_handle(int sig)
 {
-    // log_msg("rejestr przechwycil SIGINT");
     CLOSE = 1;
 }
 
@@ -308,7 +305,7 @@ void handle_petent(int pid[])
     }
 
     // tworzymy semafor do liczby czekających
-    int sems = semget(key, 1, IPC_CREAT | 0666); // semafory
+    int sems = semget(key, 1, IPC_CREAT | 0666);
     if (sems == -1)
     {
         perror("rejestr semget");
@@ -317,7 +314,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int sems_2 = semget(key_main, ILE_SEMAFOROW, 0); // semafory
+    int sems_2 = semget(key_main, ILE_SEMAFOROW, 0);
     if (sems_2 == -1)
     {
         perror("rejestr semget");
@@ -345,7 +342,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666); // pamiec
+    int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666);
     if (shm_id == -1)
     {
         perror("rejestr shmget 3");
@@ -354,7 +351,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int shm_id_2 = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
+    int shm_id_2 = shmget(key_tabx, sizeof(int) * 5, 0);
     if (shm_id_2 == -1)
     {
         perror("rejestr shmget 4");
@@ -363,7 +360,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    long *shared_mem = (long *)shmat(shm_id, NULL, 0);
     if (shared_mem == (long *)-1)
     {
         perror("rejestr shmat");
@@ -372,7 +369,7 @@ void handle_petent(int pid[])
         exit(1);
     }
 
-    int *tabx = (int *)shmat(shm_id_2, NULL, 0); // podlaczamy pamiec
+    int *tabx = (int *)shmat(shm_id_2, NULL, 0);
     if (tabx == (int *)-1)
     {
         perror("rejestr shmat");
@@ -388,9 +385,8 @@ void handle_petent(int pid[])
 
     int n = 0;
     log_msg("rejestr zaczyna glowna petle");
-    while (1) // TODO: poprawic na while(1), to jest test
+    while (1)
     {
-        // sleep(1);
         char message[50];
         sprintf(message, "wartosc CLOSE=%d", CLOSE);
         log_msg(message);
@@ -436,15 +432,12 @@ void handle_petent(int pid[])
             if (n == 50) // TODO: EKSTREMALNIE głupie
                 break;
         } while (tabx[i] == 0);
-        // if(tabx[i] != 0)
         tabx[i]--;
         log_msg("rejestr oddaje semafor REJESTR_DWA");
         semop(sems_2, &V, 1);
         sprintf(message, "rejestr wybral i=%d", i);
         log_msg(message);
 
-        // if(tabx[i] == 0)
-        // return;
         msg.pid = pid[i];
         sprintf(message, "rejestr wybral pid=%d", pid[i]);
         log_msg(message);
@@ -482,7 +475,7 @@ void handle_petent_klon(int pid[])
     }
 
     // tworzymy semafor do liczby czekających
-    int sems = semget(key, 1, IPC_CREAT | 0666); // semafory
+    int sems = semget(key, 1, IPC_CREAT | 0666);
     if (sems == -1)
     {
         perror("rejestr klon semget");
@@ -491,7 +484,7 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
-    int sems_2 = semget(key_main, ILE_SEMAFOROW, 0); // semafory
+    int sems_2 = semget(key_main, ILE_SEMAFOROW, 0);
     if (sems_2 == -1)
     {
         perror("rejestr klon semget");
@@ -520,7 +513,7 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666); // pamiec
+    int shm_id = shmget(key, sizeof(long), IPC_CREAT | 0666);
     if (shm_id == -1)
     {
         perror("rejestr klon shmget 5");
@@ -529,7 +522,7 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
-    int shm_id_2 = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
+    int shm_id_2 = shmget(key_tabx, sizeof(int) * 5, 0);
     if (shm_id_2 == -1)
     {
         perror("rejestr klon shmget 6");
@@ -538,7 +531,7 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
-    long *shared_mem = (long *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    long *shared_mem = (long *)shmat(shm_id, NULL, 0);
     if (shared_mem == (long *)-1)
     {
         perror("rejestr klon shmat");
@@ -547,7 +540,7 @@ void handle_petent_klon(int pid[])
         exit(1);
     }
 
-    int *tabx = (int *)shmat(shm_id_2, NULL, 0); // podlaczamy pamiec
+    int *tabx = (int *)shmat(shm_id_2, NULL, 0);
     if (tabx == (int *)-1)
     {
         perror("rejestr klon shmat");
@@ -560,12 +553,11 @@ void handle_petent_klon(int pid[])
 
     int n = 0;
     log_msg("rejestr uruchamia glowna petle");
-    while (1) // TODO: poprawic na while(1), to jest test
+    while (1)
     {
         char message[50];
         sprintf(message, "wartosc CLOSE=%d", CLOSE);
         log_msg(message);
-        // sleep(1);
         struct msgbuf_rejestr msg;
         msg.mtype = 1;
         if (CLOSE)
@@ -754,7 +746,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
     sprintf(message, "aktywnych petentow=%ld", *shared_mem);
     log_msg(message);
 
-    // ===== REJESTR 1 =====
+    // tworzymy rejestr 1
     if (*shared_mem >= K && pid[1] <= 0)
     {
         printf("otwarto nowy rejestr\n");
@@ -798,7 +790,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         }
     }
 
-    // ===== ZAMYKANIE REJESTRU 1 =====
+    // zamykamy rejestr 1
     if (*shared_mem < N / 3 && pid[1] > 0)
     {
         printf("zamknieto rejestr\n");
@@ -814,7 +806,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         zmieniono = 1;
     }
 
-    // ===== REJESTR 2 =====
+    // tworzymy rejestr 2
     if (*shared_mem >= 2 * K && pid[2] <= 0)
     {
         printf("otwarto nowy rejestr\n");
@@ -856,7 +848,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         }
     }
 
-    // ===== ZAMYKANIE REJESTRU 2 =====
+    // zamykamy rejestr 2
     if (*shared_mem < (2 * N) / 3 && pid[2] > 0)
     {
         printf("zamknieto rejestr\n");
@@ -879,7 +871,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         send_generator(pid, pid_generator);
 }
 
-void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche brzydko, przemyśleć
+void send_generator(pid_t pid[], pid_t pid_generator)
 {
     log_msg("rejestr uruchamia send_generator");
     key_t key = ftok(".", 1);
@@ -890,7 +882,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         exit(1);
     }
 
-    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    int sems = semget(key, ILE_SEMAFOROW, 0);
     if (sems == -1)
     {
         perror("rejestr semget");
@@ -899,7 +891,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    int shm_id = shmget(key, sizeof(key_t), 0);
     if (shm_id == -1)
     {
         perror("rejestr shmget 7");
@@ -908,7 +900,7 @@ void send_generator(pid_t pid[], pid_t pid_generator) // TODO: na razie troche b
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
     if (shared_mem == (key_t *)-1)
     {
         perror("rejestr shmat");

@@ -35,6 +35,7 @@ union semun
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 void SIGRTMIN_handle(int sig);
+void install_handler(int signo, void (*handler)(int));
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void recieve_rejestr(key_t tab[]);
@@ -64,28 +65,9 @@ int main(int argc, char **argv)
 
     log_msg("generator uruchomiony");
 
-    struct sigaction sa;
-
-    /* SIGUSR1 */
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = SIGUSR1_handle;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGUSR1, &sa, NULL);
-
-    /* SIGUSR2 */
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = SIGUSR2_handle;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGUSR2, &sa, NULL);
-
-    /* SIGRTMIN */
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = SIGRTMIN_handle;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGRTMIN, &sa, NULL);
+    install_handler(SIGUSR1, SIGUSR1_handle);
+    install_handler(SIGUSR2, SIGUSR2_handle);
+    install_handler(SIGRTMIN, SIGRTMIN);
 
     srand(time(NULL));
 
@@ -94,7 +76,7 @@ int main(int argc, char **argv)
     key_t key;
     key = atoi(argv[1]);
 
-    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    int sems = semget(key, ILE_SEMAFOROW, 0);
     if (sems == -1)
     {
         log_msg("error semget main");
@@ -102,7 +84,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    int shm_id = shmget(key, sizeof(key_t), 0);
     if (shm_id == -1)
     {
         perror("generator shmget");
@@ -110,7 +92,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
     if (shared_mem == (key_t *)-1)
     {
         perror("generator shmat");
@@ -124,39 +106,45 @@ int main(int argc, char **argv)
     {
         perror("generator recieve dyrektor");
         log_msg("error recieve_dyrektor");
-        exit(1); // TODO: tu jest problem, nie ma mechanizmu do wykraczania jeśli podproces się wykraczy
+        exit(1);
     }
     char message[110];
     sprintf(message, "generator odebral od dyrektora N=%d, p_id[6]=%d, tab[2]=%d, tab[3]=%d", tab[0], tab[1], tab[2], tab[3]);
     log_msg(message);
 
-    // printf("generator: otrzymano N=%d, pid=%d\n", tab[0], tab[1]);
-
     printf("generator - generowanie petentow\n");
-    generate_petent(tab[0], &tab[1]); // TODO: jeśli p_id[2-3] nie == -1, wysyłaj losowo pomiędzy nie
+    generate_petent(tab[0], &tab[1]);
 
     fclose(f);
     return 0;
 }
 
+void install_handler(int signo, void (*handler)(int))
+{
+    struct sigaction sa;
+    sa.sa_handler = handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(signo, &sa, NULL) == -1)
+    {
+        perror("sigaction");
+        exit(1);
+    }
+}
+
 void SIGUSR1_handle(int sig)
 {
-    // printf("generator przychwycil SIGUSR1\n");
-    // log_msg("generator przechwycil SIGUSR1");
     exit(0);
 }
 
 void SIGUSR2_handle(int sig)
 {
-    // printf("generator przychwycil SIGUSR2\n");
-    // log_msg("generator przechwycil SIGUSR2");
     exit(0);
 }
 
 void SIGRTMIN_handle(int sig)
 {
-    // async unsafe, program non stop sie wiesza po 1-2 odebraniach
-    // log_msg("generator przechwycil SIGRTMIN");
     ODEBRAC = 1;
 }
 
@@ -203,9 +191,8 @@ void generate_petent(int N, key_t rejestr_pid[])
     log_msg("generator uruchamia generate_petent");
     int active_petents = 0;
 
-    while (1) // TODO: docelowo while(1) z kontrolą liczby petentów
+    while (1)
     {
-        // sleep(1);
         char message[100];
         sprintf(message, "wartosc ODEBRAC=%d", ODEBRAC);
         log_msg(message);
@@ -273,8 +260,6 @@ void generate_petent(int N, key_t rejestr_pid[])
             active_petents--;
             log_msg("petent sie zakonczyl");
         }
-
-        // printf("aktywnych petentow: %d\n", active_petents);
     }
 }
 
@@ -310,13 +295,13 @@ char *generate_surname()
 
 char *generate_age()
 {
-    static char tab[sizeof(int) * 8]; // static pozwala istnieć po zakończeniu funkcji
+    static char tab[sizeof(int) * 8];
     int k = rand() % 65 + 15;
     sprintf(tab, "%d", k);
     return tab;
 }
 
-void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
+void recieve_rejestr(key_t pid[])
 {
     log_msg("generator uruchamia recieve_rejestr");
     key_t key = ftok(".", 1);
@@ -327,7 +312,7 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
         exit(1);
     }
 
-    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    int sems = semget(key, ILE_SEMAFOROW, 0);
     if (sems == -1)
     {
         perror("generator semget");
@@ -335,7 +320,7 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    int shm_id = shmget(key, sizeof(key_t), 0);
     if (shm_id == -1)
     {
         perror("generator shmget");
@@ -343,7 +328,7 @@ void recieve_rejestr(key_t pid[]) // TODO: na razie troche brzydko, przemyśleć
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
     if (shared_mem == (key_t *)-1)
     {
         perror("generator shmat");
@@ -410,7 +395,7 @@ int czy_limity_puste()
         exit(1);
     }
 
-    int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
+    int sems = semget(key, ILE_SEMAFOROW, 0);
     if (sems == -1)
     {
         perror("generator semget");
@@ -421,7 +406,7 @@ int czy_limity_puste()
     log_msg("generator blokuje semafor REJESTR_DWA");
     semop(sems, &P, 1);
 
-    int shm_id = shmget(key_tabx, sizeof(int) * 5, 0); // pamiec
+    int shm_id = shmget(key_tabx, sizeof(int) * 5, 0);
     if (shm_id == -1)
     {
         perror("generator shmget tabx");
@@ -430,7 +415,7 @@ int czy_limity_puste()
         return 1;
     }
 
-    key_t *tabx = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    key_t *tabx = (key_t *)shmat(shm_id, NULL, 0);
     if (tabx == (key_t *)-1)
     {
         perror("generator shmat");

@@ -111,7 +111,7 @@ int main(int argc, char **argv)
 
     sleep(tp - now);
     log_msg("dyrektor uruchamia reszte procesow");
-    kill(0, SIGCONT); // TODO: może uruchamiać po pidach, trochę niżej
+    kill(0, SIGCONT);
 
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
@@ -148,15 +148,7 @@ int main(int argc, char **argv)
         exit(1);
     }
     log_msg("dyrektor odebral od main");
-    // printf("dyrektor odebral pidy\n");
 
-    // printf("dyrektor otrzymal:\n");
-    // for (int i = 0; i < ILE_PROCESOW; i++)
-    // {
-    //     printf("%d\n", p_id[i]);
-    //     // kill(p_id[i], SIGUSR1);
-    //     // kill(p_id[i], SIGUSR2);
-    // }
     union semun arg;
     arg.val = 1;
     if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
@@ -191,8 +183,6 @@ int main(int argc, char **argv)
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
 
-    // sleep(120);
-
     while (time(NULL) < tk)
         sleep(1);
 
@@ -220,8 +210,6 @@ void cleanup()
             perror("dyrektor shmdt");
         shmctl(shmid, IPC_RMID, NULL);
     }
-    // for (int i = 0; i < ILE_PROCESOW; i++)
-    // kill(p_id[i], SIGINT);
     kill(0, SIGINT);
     fclose(f);
 }
@@ -322,7 +310,7 @@ int send_rejestr(int sems, key_t *shared_mem)
     for (int i = 0; i < 8; i++)
     {
         log_msg("dyrektor blokuje semafor DYREKTOR");
-        while (semop(sems, &P, 1) == -1) // czekamy czy można wysyłać
+        while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
                 continue;
@@ -351,7 +339,7 @@ int send_rejestr(int sems, key_t *shared_mem)
         }
 
         log_msg("dyrektor oddaje semafor REJESTR");
-        while (semop(sems, &V, 1) == -1) // zaznaczamy, że można czytać
+        while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
                 continue;

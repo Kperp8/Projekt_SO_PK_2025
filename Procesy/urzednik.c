@@ -24,7 +24,7 @@ int typ;
 struct msgbuf_urzednik // wiadomość od urzednika
 {
     long mtype;
-    char mtext[30]; // TODO: przemyslec jak ma wygladac wiadomosc od urzednika
+    char mtext[30];
     pid_t pid;
 } __attribute__((packed));
 
@@ -82,20 +82,17 @@ void install_handler(int signo, void (*handler)(int))
 
 void SIGUSR1_handle(int sig)
 {
-    // log_msg("urzednik przechwycil SIGUSR1");
     CLOSE_GENTLY = 1;
 }
 
 void SIGUSR2_handle(int sig)
 {
-    // log_msg("urzednik przechwycil SIGUSR2");
     cleanup();
     exit(0);
 }
 
 void SIGINT_handle(int sig)
 {
-    // log_msg("urzednik przechwycil SIGINT");
     cleanup();
     exit(0);
 }
@@ -150,7 +147,7 @@ void handle_petent()
             exit(0);
         }
         log_msg("urzednik odbiera wiadomosc");
-        if (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0) == -1) // TODO: obsłużyć jeśli kolejka pusta itd.
+        if (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0) == -1)
         {
             if (errno == EINTR)
                 continue;
@@ -165,7 +162,12 @@ void handle_petent()
         pid_t temp = msg.pid;
         sprintf(s_klucz, "urzednik odebral wiadomosc od pid=%d", temp);
         log_msg(s_klucz);
-        msg.mtype = temp > 0 ? temp : 3; // nie powinien być == -1, to był bug
+        if(temp <= 0)
+        {
+            cleanup();
+            exit(1);
+        }
+        msg.mtype = temp;
         if (typ < 4)
         {
             int l = rand() % 10;
@@ -204,23 +206,14 @@ void cleanup()
     log_msg("urzednik uruchamia cleanup");
     key_t key = typ == 5 ? ftok(".", getpid() - 1) : ftok(".", getpid());
     if (key == -1)
-    {
         perror("urzednik ftok");
-        // exit(1);
-    }
 
     int msgid = msgget(key, 0);
     if (msgid == -1)
-    {
         perror("urzednik msgget");
-        // exit(1);
-    }
 
     if (msgctl(msgid, IPC_RMID, NULL) == -1)
-    {
         perror("urzednik msgctl");
-        // exit(1);
-    }
     fclose(f);
 }
 
