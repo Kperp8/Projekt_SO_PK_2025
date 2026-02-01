@@ -49,6 +49,7 @@ struct msgbuf_rejestr // wiadomość od rejestru
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 void SIGINT_handle(int sig);
+void EMPTY_handle(int sig);
 void install_handler(int signo, void (*handler)(int));
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
@@ -66,6 +67,7 @@ int main(int argc, char **argv)
     install_handler(SIGUSR1, SIGUSR1_handle);
     install_handler(SIGUSR2, SIGUSR2_handle);
     install_handler(SIGINT, SIGINT_handle);
+    install_handler(SIGRTMIN, EMPTY_handle);
     raise(SIGSTOP);
     srand(time(NULL));
     printf("rejestr %d\n", getpid());
@@ -238,6 +240,10 @@ void SIGUSR2_handle(int sig)
 void SIGINT_handle(int sig)
 {
     CLOSE = 1;
+}
+
+void EMPTY_handle(int sig)
+{
 }
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[])

@@ -114,6 +114,8 @@ pid_t recieve_rejestr(pid_t r_pid)
     struct sembuf V = {.sem_num = 0, .sem_op = +1, .sem_flg = 0};
 
     struct msgbuf_rejestr msg;
+    if (vip)
+        kill(r_pid, SIGRTMIN);
     msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
     sprintf(message, "%d wysyla wiadomosc do rejestr", pid_self);
@@ -165,6 +167,8 @@ void handle_urzednik(pid_t u_pid)
     }
 
     struct msgbuf_urzednik msg;
+    if (vip)
+        kill(u_pid, SIGRTMIN);
     msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
     sprintf(message, "%d wysyla wiadomosc do urzednik", pid_self);

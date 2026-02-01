@@ -33,6 +33,7 @@ struct msgbuf_urzednik // wiadomość od urzednika
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);
 void SIGINT_handle(int sig);
+void EMPTY_handle(int sig);
 void install_handler(int signo, void (*handler)(int));
 
 void handle_petent();
@@ -44,6 +45,7 @@ int main(int argc, char **argv)
     install_handler(SIGUSR1, SIGUSR1_handle);
     install_handler(SIGUSR2, SIGUSR2_handle);
     install_handler(SIGINT, SIGINT_handle);
+    install_handler(SIGRTMIN, EMPTY_handle);
     srand(time(NULL));
     printf("urzednik\n");
     raise(SIGSTOP);
@@ -100,6 +102,10 @@ void SIGINT_handle(int sig)
     FORCE_EXIT = 1;
 }
 
+void EMPTY_handle(int sig)
+{
+}
+
 void handle_petent(void)
 {
     key_t key = (typ == 5) ? ftok(".", getpid() - 1) : ftok(".", getpid());
@@ -123,7 +129,7 @@ void handle_petent(void)
         if (FORCE_EXIT)
         {
             log_msg("urzednik FORCE_EXIT");
-            cleanup(msgid);
+            cleanup();
             exit(0);
         }
 
@@ -156,7 +162,7 @@ void handle_petent(void)
                 msgsnd(msgid, &msg, sizeof(msg) - sizeof(long), 0);
             }
 
-            cleanup(msgid);
+            cleanup();
             exit(0);
         }
 
@@ -214,7 +220,7 @@ void handle_petent(void)
         msgsnd(msgid, &msg, sizeof(msg) - sizeof(long), 0);
     }
 
-    cleanup(msgid);
+    cleanup();
 }
 
 void cleanup()
