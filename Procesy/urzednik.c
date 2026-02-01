@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
@@ -18,6 +19,7 @@ time_t t;
 struct tm *t_broken;
 
 volatile sig_atomic_t CLOSE_GENTLY = 0;
+volatile sig_atomic_t FORCE_EXIT = 0;
 
 int typ;
 
@@ -82,163 +84,137 @@ void install_handler(int signo, void (*handler)(int))
 
 void SIGUSR1_handle(int sig)
 {
+    (void)sig;
     CLOSE_GENTLY = 1;
 }
 
 void SIGUSR2_handle(int sig)
 {
-    cleanup();
-    exit(0);
+    (void)sig;
+    FORCE_EXIT = 1;
 }
 
 void SIGINT_handle(int sig)
 {
-    cleanup();
-    exit(0);
+    (void)sig;
+    FORCE_EXIT = 1;
 }
 
-void handle_petent()
+void handle_petent(void)
 {
-    log_msg("urzednik uruchamia handle_petent");
-    // tworzymy klucz z maską pid rejestru
-    log_msg("urzednik tworzy klucz");
-    key_t key = typ == 5 ? ftok(".", getpid() - 1) : ftok(".", getpid());
+    key_t key = (typ == 5) ? ftok(".", getpid() - 1) : ftok(".", getpid());
     if (key == -1)
     {
-        perror("urzednik ftok");
-        log_msg("error ftok self");
+        perror("ftok");
         exit(1);
     }
-    char s_klucz[50];
-    sprintf(s_klucz, "urzednik tworzy klucz o wartosci=%d", key);
-    log_msg(s_klucz);
 
-    // dostajemy sie do kolejki
-    log_msg("urzednik dostaje sie do kolejki");
     int msgid = msgget(key, IPC_CREAT | 0666);
     if (msgid == -1)
     {
-        perror("urzednik msgget");
-        log_msg("error msgget self");
+        perror("msgget");
         exit(1);
     }
 
-    int n = 0;
-    log_msg("urzednik zaczyna glowna petle");
+    log_msg("urzednik start petli");
+
     while (1)
     {
-        sprintf(s_klucz, "wartosc CLOSE_GENTLY=%d", CLOSE_GENTLY);
+        if (FORCE_EXIT)
+        {
+            log_msg("urzednik FORCE_EXIT");
+            cleanup(msgid);
+            exit(0);
+        }
 
         struct msgbuf_urzednik msg;
         int ret;
-        msg.mtype = 1;
+
         if (CLOSE_GENTLY)
         {
-            log_msg("urzednik obsluguje petentow i sie zamyka");
+            log_msg("urzednik CLOSE_GENTLY");
+
             while (1)
             {
-                ret = msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 2, IPC_NOWAIT);
+                ret = msgrcv(msgid, &msg,
+                             sizeof(msg) - sizeof(long),
+                             0, IPC_NOWAIT);
+
                 if (ret == -1)
                 {
                     if (errno == ENOMSG)
                         break;
-                    else
-                        perror("urzednik msgrcv");
-                }
-                else
-                {
-                    sprintf(msg.mtext, "%s", "jestes przetworzony\n");
-                    msg.mtype = msg.pid;
-                    msg.pid = -1;
-                    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), IPC_NOWAIT);
+                    if (errno == EINTR)
+                        continue;
+                    perror("msgrcv");
+                    break;
                 }
 
-                ret = msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, IPC_NOWAIT);
-                if (ret == -1)
-                {
-                    if (errno == ENOMSG)
-                        break;
-                    else
-                        perror("urzednik msgrcv");
-                }
-                else
-                {
-                    sprintf(msg.mtext, "%s", "jestes przetworzony\n");
-                    msg.mtype = msg.pid;
-                    msg.pid = -1;
-                    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), IPC_NOWAIT);
-                }
+                msg.mtype = msg.pid;
+                msg.pid = -1;
+                snprintf(msg.mtext, sizeof(msg.mtext), "jestes przetworzony\n");
+                msgsnd(msgid, &msg, sizeof(msg) - sizeof(long), 0);
             }
 
-            log_msg("urzednik sie zamyka");
-            cleanup();
+            cleanup(msgid);
             exit(0);
         }
-        log_msg("urzednik odbiera wiadomosc");
-        // sprawdzamy czy są wiadomości VIP
-        ret = msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 2, IPC_NOWAIT);
+
+        ret = msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 2, IPC_NOWAIT);
         if (ret == -1)
         {
             if (errno != ENOMSG)
             {
                 if (errno == EINTR)
                     continue;
-                perror("rejestr msgrcv VIP");
-                cleanup();
-                exit(1);
+                perror("msgrcv VIP");
+                break;
             }
 
-            // czekamy na normalne wiadomości
-            ret = msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 1, 0);
+            ret = msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 1, 0);
             if (ret == -1)
             {
-                if (errno == EINTR) // jeśli czekanie przerywa sygnał, powtarzamy pętlę
+                if (errno == EINTR)
                     continue;
-                perror("rejestr msgrcv normal");
-                cleanup();
-                exit(1);
+                perror("msgrcv normal");
+                break;
             }
         }
-        pid_t temp = msg.pid;
-        sprintf(s_klucz, "urzednik odebral wiadomosc od pid=%d", temp);
-        log_msg(s_klucz);
-        if (temp <= 0)
-        {
-            cleanup();
-            exit(1);
-        }
-        msg.mtype = temp;
+
+        pid_t pid = msg.pid;
+        msg.mtype = pid;
+
         if (typ < 4)
         {
-            int l = rand() % 10;
-            if (l == 1)
+            if (rand() % 10 == 1)
             {
-                sprintf(msg.mtext, "%s", "prosze udac sie do kasy\n");
-                msg.pid = 12; // placeholder
+                strcpy(msg.mtext, "prosze udac sie do kasy\n");
+                msg.pid = 12;
             }
             else
             {
-                sprintf(msg.mtext, "%s", "jestes przetworzony\n");
+                strcpy(msg.mtext, "jestes przetworzony\n");
                 msg.pid = -1;
             }
         }
         else
         {
-            int l = rand() % 10;
-            if (l < 4)
+            if (rand() % 10 < 4)
             {
-                sprintf(msg.mtext, "%s", "prosze udac sie do urzednika\n");
+                strcpy(msg.mtext, "prosze udac sie do urzednika\n");
                 msg.pid = typ == 4 ? getpid() - rand() % 4 - 1 : getpid() - rand() % 4 - 2;
             }
             else
             {
-                sprintf(msg.mtext, "%s", "jestes przetworzony\n");
+                strcpy(msg.mtext, "jestes przetworzony\n");
                 msg.pid = -1;
             }
         }
-        log_msg("urzednik wysyla wiadomosc z powrotem");
-        msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);
+
+        msgsnd(msgid, &msg, sizeof(msg) - sizeof(long), 0);
     }
+
+    cleanup(msgid);
 }
 
 void cleanup()

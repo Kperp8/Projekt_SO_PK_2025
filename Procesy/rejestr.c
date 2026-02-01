@@ -808,7 +808,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         log_msg(message);
         kill(pid[1], SIGINT);
         log_msg("rejestr wyslal SIGINT do rejestru");
-        waitpid(pid[1], NULL, 0);
+        // waitpid(pid[1], NULL, 0);
         log_msg("rejestr sie zamkna");
         pid[1] = -1;
         zmieniono = 1;
@@ -866,7 +866,7 @@ void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t
         log_msg(message);
         kill(pid[2], SIGINT);
         log_msg("rejestr wyslal SIGINT do rejestru");
-        waitpid(pid[2], NULL, 0);
+        // waitpid(pid[2], NULL, 0);
         log_msg("rejestr sie zamkna");
         pid[2] = -1;
         zmieniono = 1;

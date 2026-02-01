@@ -24,6 +24,7 @@
 // TODO: niektóre procesy uruchamiają cleanup() kilka razy i zwracają błąd, mimo że wszystko ok
 // TODO: czasami urzędnicy nie kończą z cleanup()
 // TODO: czasami generator wpada w nieskończoną pętlę
+// TODO: czasami rejestr crashuje przy msgrcv, błędny msgid
 
 #define ILE_SEMAFOROW 9
 #define SEMAFOR_MAIN 0
