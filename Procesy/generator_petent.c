@@ -242,8 +242,13 @@ void generate_petent(int N, key_t rejestr_pid[])
             if (pid == 0)
             {
                 srand(time(NULL) ^ getpid());
+                // losujemy czy petent będzie VIP
+                char vip[32];
+                int v;
+                v = rand() % 20 == 0 ? 1 : 0;
+                sprintf(vip, "%d", v);
                 execl("Procesy/petent", "Procesy/petent",
-                      r_pid, generate_name(), generate_surname(), generate_age(), NULL);
+                      r_pid, generate_name(), generate_surname(), generate_age(), vip, NULL);
                 perror("generator - execl petent");
                 exit(1);
             }

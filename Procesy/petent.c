@@ -12,6 +12,7 @@
 #include <string.h>
 
 pid_t pid_self;
+int vip;
 
 FILE *f;
 time_t t;
@@ -39,6 +40,7 @@ void log_msg(char *msg);
 int main(int argc, char **argv)
 {
     pid_self = getpid();
+    vip = atoi(argv[5]);
     signal(SIGUSR2, SIGUSR2_handle);
     f = fopen("./Logi/petent", "a");
     if (!f)
@@ -46,7 +48,7 @@ int main(int argc, char **argv)
         perror("petent fopen");
         exit(1);
     }
-    printf("%s %s %d pid %d\n", argv[2], argv[3], atoi(argv[4]), pid_self);
+    printf("%s %s %d pid %d vip=%d\n", argv[2], argv[3], atoi(argv[4]), pid_self, vip);
     char message[100];
     sprintf(message, "petent %s %s pid %d r_pid %d", argv[2], argv[3], pid_self, atoi(argv[1]));
     log_msg(message);
@@ -112,7 +114,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     struct sembuf V = {.sem_num = 0, .sem_op = +1, .sem_flg = 0};
 
     struct msgbuf_rejestr msg;
-    msg.mtype = 1;
+    msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
     sprintf(message, "%d wysyla wiadomosc do rejestr", pid_self);
     log_msg(message);
@@ -163,7 +165,7 @@ void handle_urzednik(pid_t u_pid)
     }
 
     struct msgbuf_urzednik msg;
-    msg.mtype = 1;
+    msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
     sprintf(message, "%d wysyla wiadomosc do urzednik", pid_self);
     log_msg(message);

@@ -26,10 +26,10 @@ time_t t;
 struct tm *t_broken;
 
 int tab_X[5] = {
-    150, // X1
-    600, // X2
-    300, // X3
-    400, // X4
+    150,  // X1
+    600,  // X2
+    300,  // X3
+    400,  // X4
     1000, // X5
 };
 
@@ -53,6 +53,7 @@ void install_handler(int signo, void (*handler)(int));
 
 int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
 void handle_petent(int pid[]);
+int choose_pid(int sems, int tab[]);
 void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t pid_generator, int tab[]); // sprawdza ile jest petentow w kolejce, otwiera nowe procesy rejestr
 void send_generator(pid_t pid[], pid_t pid_generator);
 void cleanup();
@@ -276,6 +277,29 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
     return 0;
 }
 
+int choose_pid(int sems, int tab[])
+{
+    log_msg("rejestr losuje pid");
+    struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
+    struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
+    log_msg("rejestr blokuje semafor REJESTR_DWA");
+    semop(sems, &P, 1);
+    int i, n = 0;
+    do
+    {
+        i = rand() % 10;
+        i = i < 4 ? i : 4;
+        if (tab[i] == 0)
+            n++;
+        if (n == 50) // TODO: EKSTREMALNIE głupie
+            break;
+    } while (tab[i] == 0);
+    tab[i]--;
+    log_msg("rejestr oddaje semafor REJESTR_DWA");
+    semop(sems, &V, 1);
+    return i;
+}
+
 void handle_petent(int pid[])
 {
     log_msg("rejestr uruchamia handle_petent");
@@ -395,46 +419,45 @@ void handle_petent(int pid[])
             cleanup();
             exit(0);
         }
-        struct msgbuf_rejestr msg;
-        msg.mtype = 1;
+
         check_petenci(pid[6], pid[5], key, shared_mem, rejestry, pid[7], pid);
         log_msg("rejestr odbiera wiadomosc");
-        if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
+
+        struct msgbuf_rejestr msg;
+        int ret;
+
+        // sprawdzamy czy są wiadomości VIP
+        ret = msgrcv(msgid, &msg, sizeof(pid_t), 2, IPC_NOWAIT);
+        if (ret == -1)
         {
-            if (errno == EINTR)
-                continue;
-            else
+            if (errno != ENOMSG)
             {
-                perror("rejestr msgrcv");
-                log_msg("error msgrcv handle_petent");
+                if (errno == EINTR)
+                    continue;
+                perror("rejestr msgrcv VIP");
+                cleanup();
+                exit(1);
+            }
+
+            // czekamy na normalne wiadomości
+            ret = msgrcv(msgid, &msg, sizeof(pid_t), 1, 0);
+            if (ret == -1)
+            {
+                if (errno == EINTR) // jeśli czekanie przerywa sygnał, powtarzamy pętlę
+                    continue;
+                perror("rejestr msgrcv normal");
                 cleanup();
                 exit(1);
             }
         }
+
         pid_t temp = msg.pid;
         sprintf(message, "rejestr odebral wiadomosc od pid=%d", msg.pid);
         log_msg(message);
         msg.mtype = temp;
 
-        // losujemy pid
-        log_msg("rejestr losuje pid");
-        struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
-        struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
-        log_msg("rejestr blokuje semafor REJESTR_DWA");
-        semop(sems_2, &P, 1);
-        int i, n = 0;
-        do
-        {
-            i = rand() % 10;
-            i = i < 4 ? i : 4;
-            if (tabx[i] == 0)
-                n++;
-            if (n == 50) // TODO: EKSTREMALNIE głupie
-                break;
-        } while (tabx[i] == 0);
-        tabx[i]--;
-        log_msg("rejestr oddaje semafor REJESTR_DWA");
-        semop(sems_2, &V, 1);
+        // wybieramy, do którego urzędnika wysłać petenta
+        int i = choose_pid(sems_2, tabx);
         sprintf(message, "rejestr wybral i=%d", i);
         log_msg(message);
 
@@ -559,34 +582,23 @@ void handle_petent_klon(int pid[])
         sprintf(message, "wartosc CLOSE=%d", CLOSE);
         log_msg(message);
         struct msgbuf_rejestr msg;
+        int ret;
         msg.mtype = 1;
         if (CLOSE)
         {
             log_msg("rejestr czysci kolejke i sie zamyka");
+            while (msgrcv(msgid, &msg, sizeof(pid_t), 2, IPC_NOWAIT) != -1)
+            {
+                msg.mtype = msg.pid;
+                int i = choose_pid(sems_2, tabx);
+
+                msg.pid = pid[i];
+                msgsnd(msgid, &msg, sizeof(pid_t), IPC_NOWAIT);
+            }
             while (msgrcv(msgid, &msg, sizeof(pid_t), 1, IPC_NOWAIT) != -1)
             {
                 msg.mtype = msg.pid;
-                struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
-                struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
-                semop(sems_2, &P, 1);
-                int i, flaga = 0;
-                do
-                {
-                    i = rand() % 10;
-                    i = i < 4 ? i : 4;
-                    if (tabx[i] == 0)
-                        n++;
-                    if (n == 50) // TODO: EKSTREMALNIE głupie
-                    {
-                        flaga = 1;
-                        break;
-                    }
-                } while (tabx[i] == 0);
-                if (!flaga)
-                    tabx[i]--;
-                semop(sems_2, &V, 1);
-                if (flaga)
-                    break;
+                int i = choose_pid(sems_2, tabx);
 
                 msg.pid = pid[i];
                 msgsnd(msgid, &msg, sizeof(pid_t), IPC_NOWAIT);
@@ -596,14 +608,27 @@ void handle_petent_klon(int pid[])
             exit(0);
         }
         log_msg("rejestr odbiera wiadomosc");
-        if (msgrcv(msgid, &msg, sizeof(pid_t), 1, 0) == -1)
+
+        // sprawdzamy czy są wiadomości VIP
+        ret = msgrcv(msgid, &msg, sizeof(pid_t), 2, IPC_NOWAIT);
+        if (ret == -1)
         {
-            if (errno == EINTR)
-                continue;
-            else
+            if (errno != ENOMSG)
             {
-                perror("rejestr msgrcv");
-                log_msg("error msgrcv handle_petent_klon");
+                if (errno == EINTR)
+                    continue;
+                perror("rejestr msgrcv VIP");
+                cleanup_klon();
+                exit(1);
+            }
+
+            // czekamy na normalne wiadomości
+            ret = msgrcv(msgid, &msg, sizeof(pid_t), 1, 0);
+            if (ret == -1)
+            {
+                if (errno == EINTR) // jeśli czekanie przerywa sygnał, powtarzamy pętlę
+                    continue;
+                perror("rejestr msgrcv normal");
                 cleanup_klon();
                 exit(1);
             }
@@ -613,26 +638,9 @@ void handle_petent_klon(int pid[])
         sprintf(message, "rejestr odebral wiadomosc od pid=%d", msg.pid);
         log_msg(message);
 
-        // losujemy pid
-        struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
-        struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
-        log_msg("rejestr blokuje semafor REJESTR_DWA");
-        semop(sems_2, &P, 1);
-        int i;
-        do
-        {
-            i = rand() % 10;
-            i = i < 4 ? i : 4;
-            if (tabx[i] == 0)
-                n++;
-            if (n == 50) // TODO: EKSTREMALNIE głupie
-                break;
-        } while (tabx[i] == 0);
-        tabx[i]--;
+        int i = choose_pid(sems_2, tabx);
         sprintf(message, "rejestr wybral i=%d", i);
         log_msg(message);
-        log_msg("rejestr oddaje semafor REJESTR_DWA");
-        semop(sems_2, &V, 1);
 
         msg.pid = pid[i];
         sprintf(message, "rejestr wybral pid=%d", pid[i]);
