@@ -13,7 +13,7 @@
 #include <time.h>
 #include <string.h>
 
-#define ILE_SEMAFOROW 9
+#define ILE_SEMAFOROW 5
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
@@ -393,7 +393,7 @@ int czy_limity_puste()
         exit(1);
     }
     key_t key_tabx = ftok(".", 2);
-    if (key == -1)
+    if (key_tabx == -1)
     {
         perror("generator ftok");
         log_msg("error ftok tabx czy_limity");

@@ -9,7 +9,7 @@ echo "petentow porazek: $ile_procesow_fail"
 
 echo "uruchomione procesy(powinien być tylko bash i ps):"
 ps
-echo "pozostałe struktury V(powinne być puste):"
+echo "pozostałe struktury V(powinny być puste):"
 ipcs
 
 # ile_procesow_u1=`cat Logi/urzednik_0 | grep "urzednik wysyla wiadomosc z powrotem" | wc -l`

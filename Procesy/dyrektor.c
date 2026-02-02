@@ -10,23 +10,11 @@
 #include <sys/wait.h>
 #include <time.h>
 
-// TODO: pełne działanie petentów
 // TODO: typy jak key_t i pid_t są używane niespójnie
-// TODO: w rejestrze dużo powtarzającego się kodu
-// TODO: głupie nazwy w rejestrze
-// TODO: skoro tab_X i tak jest w pamięci dzielonej, równie dobrze dyrektor może go zapisać
-// TODO: rejestr jest super brzydki
-// TODO: obsługa edge-casuw
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
-// TODO: proces usuwający zombie
-// TODO: zmienić main, aby przeprowadzał kilka dni pracy
-// TODO: na koniec każdego dnia main niech uruchamia skrypt bash, który podsumowuje dzień
-// TODO: niektóre procesy uruchamiają cleanup() kilka razy i zwracają błąd, mimo że wszystko ok
-// TODO: czasami urzędnicy nie kończą z cleanup()
-// TODO: czasami generator wpada w nieskończoną pętlę
-// TODO: czasami rejestr crashuje przy msgrcv, błędny msgid
+// TODO: urzędnikom czasami się zamykają kolejki w środku programu
 
-#define ILE_SEMAFOROW 9
+#define ILE_SEMAFOROW 5
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
@@ -34,7 +22,7 @@
 #define ILE_PROCESOW 8
 
 time_t Tp, Tk;
-int N = 27, K = 9; // do generator, rejestr
+int N = 27, K = 9;
 
 FILE *f;
 time_t t;
@@ -51,6 +39,7 @@ union semun
 };
 
 void SIGINT_handle(int sig);
+void EMPTY_handle(int sig);
 
 void cleanup();
 int recieve_main(int sems, key_t *shared_mem);
@@ -61,6 +50,8 @@ void log_msg(char *msg);
 int main(int argc, char **argv)
 {
     signal(SIGINT, SIGINT_handle);
+    signal(SIGUSR1, EMPTY_handle);
+    signal(SIGUSR2, EMPTY_handle);
 
     time_t now, tp, tk;
     struct tm tm_tp, tm_tk;
@@ -98,6 +89,7 @@ int main(int argc, char **argv)
         which + 1);
 
     log_msg(message);
+    printf("%s\n", message);
 
     key = atoi(argv[1]); // odbieramy klucz
     printf("dyrektor\n");
@@ -179,8 +171,10 @@ int main(int argc, char **argv)
     while (time(NULL) < tk)
         sleep(1);
 
+    // for (int i = 0; i < ILE_PROCESOW; i++)
+    kill(0, which == 0 ? SIGUSR1 : SIGUSR2);
     for (int i = 0; i < ILE_PROCESOW; i++)
-        kill(p_id[i], which == 0 ? SIGUSR1 : SIGUSR2);
+        waitpid(p_id[i], NULL, 0);
 
     printf("koniec\n");
     log_msg("dyrektor konczy dzialanie");
@@ -209,10 +203,13 @@ void cleanup()
 
 void SIGINT_handle(int sig)
 {
-    printf("\nprzechwycono SIGINT\n");
-    log_msg("dyrektor przechwycil SIGINT");
+    log_msg("dyrektor przechwycil SIGINT"); // asyns-unsafe, używany dużo powoduje ub
     cleanup();
     exit(0);
+}
+
+void EMPTY_handle(int sig)
+{
 }
 
 int recieve_main(int sems, key_t *shared_mem)

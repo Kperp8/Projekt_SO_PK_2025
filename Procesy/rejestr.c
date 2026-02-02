@@ -17,7 +17,7 @@
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
 #define SEMAFOR_REJESTR_DWA 4 // semafor dla komunikacji między rejestrami
-#define ILE_SEMAFOROW 9
+#define ILE_SEMAFOROW 5
 
 volatile sig_atomic_t CLOSE = 0;
 
@@ -286,24 +286,52 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
 int choose_pid(int sems, int tab[])
 {
     log_msg("rejestr losuje pid");
+
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
-    log_msg("rejestr blokuje semafor REJESTR_DWA");
+
     semop(sems, &P, 1);
-    int i, n = 0;
-    do
+
+    int available = 0;
+    for (int i = 0; i < 5; i++)
     {
-        i = rand() % 10;
-        i = i < 4 ? i : 4;
-        if (tab[i] == 0)
-            n++;
-        if (n == 50) // TODO: EKSTREMALNIE głupie
+        if (tab[i] > 0)
+        {
+            available = 1;
             break;
-    } while (tab[i] == 0);
-    tab[i]--;
-    log_msg("rejestr oddaje semafor REJESTR_DWA");
+        }
+    }
+
+    if (!available)
+    {
+        semop(sems, &V, 1);
+        return -1;
+    }
+
+    int id;
+    while (1)
+    {
+        int r = rand() % 100;
+
+        if (r < 60)
+            id = 4;
+        else if (r < 70)
+            id = 0;
+        else if (r < 80)
+            id = 1;
+        else if (r < 90)
+            id = 2;
+        else
+            id = 3;
+
+        if (tab[id] > 0)
+            break;
+    }
+
+    tab[id]--;
+
     semop(sems, &V, 1);
-    return i;
+    return id;
 }
 
 void handle_petent(int pid[])
@@ -413,7 +441,6 @@ void handle_petent(int pid[])
     pid_t rejestry[3] = {-1, -1, -1};
     rejestry[0] = getpid();
 
-    int n = 0;
     log_msg("rejestr zaczyna glowna petle");
     while (1)
     {
@@ -580,7 +607,6 @@ void handle_petent_klon(int pid[])
 
     *shared_mem = 0;
 
-    int n = 0;
     log_msg("rejestr uruchamia glowna petle");
     while (1)
     {
@@ -672,7 +698,7 @@ void cleanup()
     if (msgid == -1)
         perror("rejestr msgget cleanup");
 
-    if (msgctl(msgid, IPC_RMID, NULL) == -1) // TODO: jeśli kolejki już nie ma, zwróci -1, mimo że to nas nie obchodzi
+    if (msgctl(msgid, IPC_RMID, NULL) == -1)
         perror("rejestr msgctl cleanup");
 
     int shmid = shmget(key, sizeof(long), 0);

@@ -32,6 +32,7 @@ struct msgbuf_urzednik // wiadomość od urzednika
 } __attribute__((packed));
 
 void SIGUSR2_handle(int sig);
+void EMPTY_handle(int sig);
 
 pid_t recieve_rejestr(pid_t r_pid);
 void handle_urzednik(pid_t u_pid);
@@ -42,6 +43,7 @@ int main(int argc, char **argv)
     pid_self = getpid();
     vip = atoi(argv[5]);
     signal(SIGUSR2, SIGUSR2_handle);
+    signal(SIGUSR1, EMPTY_handle);
     f = fopen("./Logi/petent", "a");
     if (!f)
     {
@@ -214,6 +216,10 @@ void SIGUSR2_handle(int sig)
     } while (i < 120); // TODO: fajnie by byłoby to zrandowmizować, żeby nie mówili wszyscy naraz
     // może różne wiadomości
     exit(0);
+}
+
+void EMPTY_handle(int sig)
+{
 }
 
 void log_msg(char *msg)

@@ -10,7 +10,7 @@
 #include <sys/wait.h>
 #include <time.h>
 
-#define ILE_SEMAFOROW 9 // po jednym dla main, dyrektor, rejestr, każdego urzędnika
+#define ILE_SEMAFOROW 5
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
@@ -38,6 +38,7 @@ union semun
 };
 
 void SIGINT_handle(int sig);
+void EMPTY_handle(int sig);
 
 // usuwa semafory, pamiec wspoldzielona i zamyka wszystkie procesy
 void cleanup();
@@ -49,6 +50,8 @@ void log_msg(char *msg);
 int main(int argc, char **argv)
 {
     signal(SIGINT, SIGINT_handle);
+    signal(SIGUSR1, EMPTY_handle);
+    signal(SIGUSR2, EMPTY_handle);
 
     f = fopen("./Logi/main", "w");
     if (!f)
@@ -108,11 +111,7 @@ int main(int argc, char **argv)
 
     log_msg("main czeka");
     for (int i = 0; i < ILE_PROCESOW; i++)
-        if (waitpid(p_id[i], NULL, 0) != 0)
-        {
-            printf("proces %d zakonczyl sie porazka\n", p_id[i]);
-            cleanup();
-        }
+        waitpid(p_id[i], NULL, 0);
 
     return 0;
 }
@@ -127,17 +126,19 @@ void cleanup()
     int shmid = shmget(key, sizeof(key_t), 0);
     if (shmid != -1)
         shmctl(shmid, IPC_RMID, NULL);
-    // zamykamy procesy pochodne SIGINTem
     kill(p_id[8], SIGINT);
     fclose(f);
 }
 
 void SIGINT_handle(int sig)
 {
-    printf("\nprzechwycono SIGINT\n");
-    log_msg("main przechwycil SIGINT");
+    log_msg("main przechwycil SIGINT"); // asyns-unsafe, uwaga
     cleanup();
     exit(0);
+}
+
+void EMPTY_handle(int sig)
+{
 }
 
 void start_procesy()

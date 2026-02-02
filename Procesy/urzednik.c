@@ -94,12 +94,16 @@ void SIGUSR2_handle(int sig)
 {
     (void)sig;
     FORCE_EXIT = 1;
+    if (typ == 5)
+        exit(0);
 }
 
 void SIGINT_handle(int sig)
 {
     (void)sig;
     FORCE_EXIT = 1;
+    if (typ == 5)
+        exit(0);
 }
 
 void EMPTY_handle(int sig)
@@ -111,14 +115,14 @@ void handle_petent(void)
     key_t key = (typ == 5) ? ftok(".", getpid() - 1) : ftok(".", getpid());
     if (key == -1)
     {
-        perror("ftok");
+        perror("urzednik ftok");
         exit(1);
     }
 
     int msgid = msgget(key, IPC_CREAT | 0666);
     if (msgid == -1)
     {
-        perror("msgget");
+        perror("urzednik msgget");
         exit(1);
     }
 
@@ -142,17 +146,15 @@ void handle_petent(void)
 
             while (1)
             {
-                ret = msgrcv(msgid, &msg,
-                             sizeof(msg) - sizeof(long),
-                             0, IPC_NOWAIT);
-
+                ret = msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 0, IPC_NOWAIT);
                 if (ret == -1)
                 {
                     if (errno == ENOMSG)
                         break;
                     if (errno == EINTR)
                         continue;
-                    perror("msgrcv");
+                    perror("urzednik msgrcv");
+                    log_msg("error msgrcv");
                     break;
                 }
 
@@ -166,6 +168,7 @@ void handle_petent(void)
             exit(0);
         }
 
+        log_msg("urzednik odbiera wiadomosc");
         ret = msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 2, IPC_NOWAIT);
         if (ret == -1)
         {
@@ -173,7 +176,8 @@ void handle_petent(void)
             {
                 if (errno == EINTR)
                     continue;
-                perror("msgrcv VIP");
+                perror("urzednik msgrcv VIP");
+                log_msg("error msgrcv VIP");
                 break;
             }
 
@@ -182,11 +186,22 @@ void handle_petent(void)
             {
                 if (errno == EINTR)
                     continue;
-                perror("msgrcv normal");
+                if (errno == ENOMSG)
+                    continue;
+                if (errno == EIDRM)
+                {
+                    perror("o co cho");
+                    log_msg("nie powinno sie zdarzyc, ale...");
+                    cleanup();
+                    exit(1);
+                }
+                perror("urzednik msgrcv normal");
+                log_msg("error msgrcv normal");
                 break;
             }
         }
 
+        log_msg("urzednik odebral wiadomosc");
         pid_t pid = msg.pid;
         msg.mtype = pid;
 
@@ -217,6 +232,7 @@ void handle_petent(void)
             }
         }
 
+        log_msg("urzednik odsyla wiadomosc");
         msgsnd(msgid, &msg, sizeof(msg) - sizeof(long), 0);
     }
 
