@@ -57,6 +57,8 @@ int main(int argc, char **argv)
     pid_t r_pid = atoi(argv[1]);
     printf("petent r_pid=%d\n", r_pid);
     pid_t u_pid = recieve_rejestr(r_pid);
+    if (u_pid == -1)
+        raise(SIGUSR2);
     handle_urzednik(u_pid);
     return 0;
 }
@@ -141,7 +143,7 @@ pid_t recieve_rejestr(pid_t r_pid)
     log_msg(message);
     semop(sems, &V, 1);
     shmdt(shared_mem);
-    return msg.pid;
+    return msg.pid != pid_self ? msg.pid : -1;
 }
 
 void handle_urzednik(pid_t u_pid)

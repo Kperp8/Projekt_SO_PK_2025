@@ -13,6 +13,10 @@
 // TODO: typy jak key_t i pid_t są używane niespójnie
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 // TODO: urzędnikom czasami się zamykają kolejki w środku programu
+// TODO: generator czasami wysyła petentów do zamykających się rejestrów
+// TODO: generator wysyła za dużo petentów
+// TODO: klony rejestru zamykają się za szybko, gubią petentów, dodać semafor
+// TODO: przepisać dostęp do kolejekt komunikatów używając IPC_PRIVATE i zapisując msgid do pamięci dzielonej
 
 #define ILE_SEMAFOROW 5
 #define SEMAFOR_MAIN 0

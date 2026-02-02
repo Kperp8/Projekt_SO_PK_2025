@@ -491,6 +491,8 @@ void handle_petent(int pid[])
 
         // wybieramy, do którego urzędnika wysłać petenta
         int i = choose_pid(sems_2, tabx);
+        if (i == -1)
+            break;
         sprintf(message, "rejestr wybral i=%d", i);
         log_msg(message);
 
@@ -619,6 +621,7 @@ void handle_petent_klon(int pid[])
         if (CLOSE)
         {
             log_msg("rejestr czysci kolejke i sie zamyka");
+            // sleep(1); // bardzo wygodne by tu było
             while (msgrcv(msgid, &msg, sizeof(pid_t), 2, IPC_NOWAIT) != -1)
             {
                 msg.mtype = msg.pid;
@@ -671,6 +674,8 @@ void handle_petent_klon(int pid[])
         log_msg(message);
 
         int i = choose_pid(sems_2, tabx);
+        if (i == -1)
+            break;
         sprintf(message, "rejestr wybral i=%d", i);
         log_msg(message);
 
