@@ -14,9 +14,13 @@
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 // TODO: urzędnikom czasami się zamykają kolejki w środku programu
 // TODO: generator czasami wysyła petentów do zamykających się rejestrów
-// TODO: generator wysyła za dużo petentów
 // TODO: klony rejestru zamykają się za szybko, gubią petentów, dodać semafor
 // TODO: przepisać dostęp do kolejekt komunikatów używając IPC_PRIVATE i zapisując msgid do pamięci dzielonej
+// TODO: generator znowu gubi sygnał SIGRTMIN
+// TODO: jeśli dyrektor za szybko dostanie SIGINT, nie usuwa struktur systemu V
+// TODO: generator powinien tworzyć non stop
+// liczba petentów w urzędzie powinna być kontrolowana semaforem
+// TODO: może generator przepisać, aby moć go dowolnie uruchamiać
 
 #define ILE_SEMAFOROW 5
 #define SEMAFOR_MAIN 0
@@ -56,6 +60,7 @@ int main(int argc, char **argv)
     signal(SIGINT, SIGINT_handle);
     signal(SIGUSR1, EMPTY_handle);
     signal(SIGUSR2, EMPTY_handle);
+    printf("dyrektor\n");
 
     time_t now, tp, tk;
     struct tm tm_tp, tm_tk;
@@ -96,7 +101,6 @@ int main(int argc, char **argv)
     printf("%s\n", message);
 
     key = atoi(argv[1]); // odbieramy klucz
-    printf("dyrektor\n");
 
     sleep(tp - now);
     log_msg("dyrektor uruchamia reszte procesow");
@@ -175,6 +179,8 @@ int main(int argc, char **argv)
     while (time(NULL) < tk)
         sleep(1);
 
+    // sleep(40);
+
     // for (int i = 0; i < ILE_PROCESOW; i++)
     kill(0, which == 0 ? SIGUSR1 : SIGUSR2);
     for (int i = 0; i < ILE_PROCESOW; i++)
@@ -190,18 +196,26 @@ int main(int argc, char **argv)
 void cleanup()
 {
     log_msg("dyrektor wykonuje cleanup");
+    key = ftok(".", 1);
+    if (key == -1)
+        perror("dyrektor ftok");
     int semid = semget(key, 0, 0);
     if (semid != -1)
         semctl(semid, 0, IPC_RMID);
+    else
+        perror("dyrektor semget");
     int shmid = shmget(key, sizeof(key_t), 0);
     if (shmid != -1)
     {
         key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
-        if (shmdt(shared_mem) != 0)
+        if (shmdt(shared_mem) == -1)
             perror("dyrektor shmdt");
         shmctl(shmid, IPC_RMID, NULL);
     }
-    kill(0, SIGINT);
+    else
+        perror("dyrektor shmid");
+    for (int i = 0; i < ILE_PROCESOW; i++)
+        kill(p_id[i], SIGINT);
     fclose(f);
 }
 

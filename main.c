@@ -64,7 +64,6 @@ int main(int argc, char **argv)
 
     // tworzymy klucz
     key = ftok(".", 1);
-    // printf("key - %d\n", key);
     if (key == -1)
     {
         perror("main - ftok");
@@ -119,13 +118,13 @@ int main(int argc, char **argv)
 void cleanup()
 {
     log_msg("main wykonuje cleanup");
-    int semid = semget(key, 0, 0);
-    if (semid != -1)
-        semctl(semid, 0, IPC_RMID);
-    // usuwamy dzieloną pamięć
-    int shmid = shmget(key, sizeof(key_t), 0);
-    if (shmid != -1)
-        shmctl(shmid, IPC_RMID, NULL);
+    // int semid = semget(key, 0, 0);
+    // if (semid != -1)
+    //     semctl(semid, 0, IPC_RMID);
+    // // usuwamy dzieloną pamięć
+    // int shmid = shmget(key, sizeof(key_t), 0);
+    // if (shmid != -1)
+    //     shmctl(shmid, IPC_RMID, NULL);
     kill(p_id[8], SIGINT);
     fclose(f);
 }

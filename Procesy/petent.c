@@ -40,6 +40,7 @@ void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
+    // TODO: petent nieletni jako dodatkowy wątek
     pid_self = getpid();
     vip = atoi(argv[5]);
     signal(SIGUSR2, SIGUSR2_handle);
@@ -215,7 +216,7 @@ void SIGUSR2_handle(int sig)
         sleep(10);
         printf("PID %d - JESTEM SFRUSTROWANY\n", getpid());
         i += 10;
-    } while (i < 120); // TODO: fajnie by byłoby to zrandowmizować, żeby nie mówili wszyscy naraz
+    } while (i < 20); // TODO: fajnie by byłoby to zrandowmizować, żeby nie mówili wszyscy naraz
     // może różne wiadomości
     exit(0);
 }

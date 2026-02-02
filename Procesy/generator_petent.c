@@ -145,6 +145,7 @@ void SIGUSR2_handle(int sig)
 
 void SIGRTMIN_handle(int sig)
 {
+    // niech wywołuje recieve_rejestr()
     ODEBRAC = 1;
 }
 
@@ -258,6 +259,7 @@ void generate_petent(int N, key_t rejestr_pid[])
 
         // Sprawdzamy zakończone procesy
         log_msg("generator sprawdza ilu petentow sie zakonczylo");
+        // TODO: wrzucić do osobnego wątku
         int status;
         pid_t wpid;
         while ((wpid = waitpid(-1, &status, WNOHANG)) > 0)

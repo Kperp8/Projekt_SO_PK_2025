@@ -176,6 +176,11 @@ void handle_petent(void)
             {
                 if (errno == EINTR)
                     continue;
+                if (errno == EIDRM)
+                {
+                    msgid = msgget(key, IPC_CREAT | 0666); // bandaid fix
+                    continue;
+                }
                 perror("urzednik msgrcv VIP");
                 log_msg("error msgrcv VIP");
                 break;
@@ -190,10 +195,11 @@ void handle_petent(void)
                     continue;
                 if (errno == EIDRM)
                 {
+                    msgid = msgget(key, IPC_CREAT | 0666);
                     perror("o co cho");
                     log_msg("nie powinno sie zdarzyc, ale...");
-                    cleanup();
-                    exit(1);
+                    // cleanup();
+                    // exit(1);
                 }
                 perror("urzednik msgrcv normal");
                 log_msg("error msgrcv normal");
@@ -246,6 +252,7 @@ void cleanup()
         fclose(f);
         return;
     }
+    // TODO: niech wypisze jaki pid wywołał
     log_msg("urzednik uruchamia cleanup");
     key_t key = ftok(".", getpid());
     if (key == -1)
