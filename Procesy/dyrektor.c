@@ -15,7 +15,6 @@
 // TODO: urzędnikom czasami się zamykają kolejki w środku programu
 // TODO: generator czasami wysyła petentów do zamykających się rejestrów
 // TODO: klony rejestru zamykają się za szybko, gubią petentów, dodać semafor
-// TODO: przepisać dostęp do kolejekt komunikatów używając IPC_PRIVATE i zapisując msgid do pamięci dzielonej
 // TODO: generator znowu gubi sygnał SIGRTMIN
 // TODO: jeśli dyrektor za szybko dostanie SIGINT, nie usuwa struktur systemu V
 // TODO: generator powinien tworzyć non stop
@@ -62,7 +61,7 @@ int main(int argc, char **argv)
     signal(SIGUSR2, EMPTY_handle);
     printf("dyrektor\n");
 
-    time_t now, tp, tk;
+    time_t now, tp, tk, how_long;
     struct tm tm_tp, tm_tk;
 
     now = time(NULL);
@@ -72,6 +71,7 @@ int main(int argc, char **argv)
 
     tp = now + 10 + rand() % 20;
     tk = now + 30 + rand() % 60;
+    how_long = tk - tp;
 
     localtime_r(&tp, &tm_tp);
     localtime_r(&tk, &tm_tk);
@@ -176,7 +176,8 @@ int main(int argc, char **argv)
     if (shmdt(shared_mem) != 0)
         perror("dyrektor shmdt");
 
-    while (time(NULL) < tk)
+    time_t n = 0;
+    while (n++ < how_long)
         sleep(1);
 
     // sleep(40);
