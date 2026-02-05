@@ -10,7 +10,7 @@
 #include <sys/wait.h>
 #include <time.h>
 
-#define ILE_SEMAFOROW 5
+#define ILE_SEMAFOROW 6
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2

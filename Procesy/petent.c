@@ -11,6 +11,13 @@
 #include <errno.h>
 #include <string.h>
 
+#define ILE_SEMAFOROW 6
+#define SEMAFOR_PETENCI 5
+
+key_t key;
+int sems;
+struct sembuf V_free = {.sem_num = SEMAFOR_PETENCI, .sem_op = +1, .sem_flg = 0};
+
 pid_t pid_self;
 int vip;
 
@@ -40,6 +47,22 @@ void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
+    key = ftok(".", 1);
+    if (key == -1)
+    {
+        perror("petent ftok");
+        log_msg("error ftok");
+        exit(1);
+    }
+
+    sems = semget(key, ILE_SEMAFOROW, 0);
+    if (sems == -1)
+    {
+        perror("petent semget");
+        log_msg("error semget");
+        exit(1);
+    }
+    
     // TODO: petent nieletni jako dodatkowy wątek
     pid_self = getpid();
     vip = atoi(argv[5]);
@@ -49,6 +72,7 @@ int main(int argc, char **argv)
     if (!f)
     {
         perror("petent fopen");
+        semop(sems, &V_free, 1);
         exit(1);
     }
     printf("%s %s %d pid %d vip=%d\n", argv[2], argv[3], atoi(argv[4]), pid_self, vip);
@@ -57,6 +81,8 @@ int main(int argc, char **argv)
     log_msg(message);
     pid_t r_pid = atoi(argv[1]);
     printf("petent r_pid=%d\n", r_pid);
+
+
     pid_t u_pid = recieve_rejestr(r_pid);
     if (u_pid == -1)
         raise(SIGUSR2);
@@ -76,6 +102,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         perror("petent ftok");
         sprintf(message, "%d error ftok recieve_rejestr", pid_self);
         log_msg(message);
+        semop(sems, &V_free, 1); // zwalniamy miejsce w budynku
         exit(1);
     }
 
@@ -85,6 +112,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         perror("petent msgget");
         sprintf(message, "%d error msgget recieve_rejestr", pid_self);
         log_msg(message);
+        semop(sems, &V_free, 1);
         exit(1);
     }
 
@@ -94,6 +122,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         perror("petent shmget");
         sprintf(message, "%d error shmget recieve_rejestr", pid_self);
         log_msg(message);
+        semop(sems, &V_free, 1);
         exit(1);
     }
 
@@ -103,6 +132,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         perror("petent shmat");
         sprintf(message, "%d error shmat recieve_rejestr", pid_self);
         log_msg(message);
+        semop(sems, &V_free, 1);
         exit(1);
     }
 
@@ -112,6 +142,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         perror("petent semget");
         sprintf(message, "%d error semget recieve_rejestr", pid_self);
         log_msg(message);
+        semop(sems, &V_free, 1);
         exit(1);
     }
 
@@ -159,6 +190,7 @@ void handle_urzednik(pid_t u_pid)
         perror("petent ftok");
         sprintf(message, "%d error ftok handle_urzednik", pid_self);
         log_msg(message);
+        semop(sems, &V_free, 1);
         exit(1);
     }
 
@@ -168,6 +200,7 @@ void handle_urzednik(pid_t u_pid)
         perror("petent msgget");
         sprintf(message, "%d error msgget handle_urzednik", pid_self);
         log_msg(message);
+        semop(sems, &V_free, 1);
         exit(1);
     }
 
@@ -202,6 +235,7 @@ void handle_urzednik(pid_t u_pid)
     printf("pid %d otrzymal - %s", pid_self, msg.mtext);
     sprintf(message, "%d otrzymal wiadomosc %s", pid_self, msg.mtext);
     log_msg(message);
+    semop(sems, &V_free, 1);
     exit(0); // żeby dwa razy się nie odzywali jeśli są odesłani
 }
 
@@ -218,6 +252,7 @@ void SIGUSR2_handle(int sig)
         i += 10;
     } while (i < 20); // TODO: fajnie by byłoby to zrandowmizować, żeby nie mówili wszyscy naraz
     // może różne wiadomości
+    semop(sems, &V_free, 1);
     exit(0);
 }
 

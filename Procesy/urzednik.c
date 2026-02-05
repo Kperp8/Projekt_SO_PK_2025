@@ -252,6 +252,12 @@ void cleanup()
         fclose(f);
         return;
     }
+
+    char message[50];
+    sprintf(message, "wywolal pid=%d", getpid());
+    log_msg(message);
+    log_msg("urzednik uruchamia cleanup");
+
     // TODO: niech wypisze jaki pid wywołał
     log_msg("urzednik uruchamia cleanup");
     key_t key = ftok(".", getpid());

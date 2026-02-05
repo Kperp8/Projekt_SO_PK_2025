@@ -21,11 +21,12 @@
 // liczba petentów w urzędzie powinna być kontrolowana semaforem
 // TODO: może generator przepisać, aby moć go dowolnie uruchamiać
 
-#define ILE_SEMAFOROW 5
+#define ILE_SEMAFOROW 6
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
+#define SEMAFOR_PETENCI 5
 #define ILE_PROCESOW 8
 
 time_t Tp, Tk;
@@ -143,6 +144,14 @@ int main(int argc, char **argv)
     log_msg("dyrektor odebral od main");
 
     union semun arg;
+    arg.val = N;
+    if (semctl(sems, SEMAFOR_PETENCI, SETVAL, arg) == -1)
+    {
+        perror("dyrektor semctl");
+        log_msg("error recieve_main");
+        cleanup();
+        exit(1);
+    }
     arg.val = 1;
     if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
     {
