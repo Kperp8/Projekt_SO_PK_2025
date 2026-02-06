@@ -1,19 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "common.h"
 #include <pthread.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <sys/shm.h>
-#include <sys/sem.h>
-#include <errno.h>
-#include <string.h>
-#include <pthread.h>
-
-#define ILE_SEMAFOROW 6
-#define SEMAFOR_PETENCI 5
 
 key_t key;
 int sems;

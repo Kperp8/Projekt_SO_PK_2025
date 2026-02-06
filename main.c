@@ -1,21 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <sys/shm.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/wait.h>
-#include <time.h>
-
-#define ILE_SEMAFOROW 6
-#define SEMAFOR_MAIN 0
-#define SEMAFOR_DYREKTOR 1
-#define SEMAFOR_GENERATOR 2
-#define SEMAFOR_REJESTR 3
-#define ILE_PROCESOW 8
+#include "Procesy/common.h"
 
 /*
 0-5: urzednicy
@@ -29,13 +12,6 @@ key_t key;
 FILE *f;
 time_t t;
 struct tm *t_broken;
-
-union semun
-{
-    int val;
-    struct semid_ds *buf;
-    unsigned short *array;
-};
 
 void SIGINT_handle(int sig);
 void EMPTY_handle(int sig);

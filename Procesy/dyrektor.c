@@ -1,28 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <sys/shm.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/wait.h>
-#include <time.h>
+#include "common.h"
 
-// TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 // TODO: urzędnikom czasami się zamykają kolejki w środku programu
 // TODO: klony rejestru zamykają się za szybko, gubią petentów, dodać semafor
 // TODO: jeśli dyrektor za szybko dostanie SIGINT, nie usuwa struktur systemu V
 // TODO: może generator przepisać, aby moć go dowolnie uruchamiać
-
-#define ILE_SEMAFOROW 6
-#define SEMAFOR_MAIN 0
-#define SEMAFOR_DYREKTOR 1
-#define SEMAFOR_GENERATOR 2
-#define SEMAFOR_REJESTR 3
-#define SEMAFOR_PETENCI 5
-#define ILE_PROCESOW 8
 
 time_t Tp, Tk;
 int N = 27, K = 9;
@@ -33,13 +14,6 @@ struct tm *t_broken;
 
 key_t key;
 pid_t p_id[ILE_PROCESOW];
-
-union semun
-{
-    int val;
-    struct semid_ds *buf;
-    unsigned short *array;
-};
 
 void SIGINT_handle(int sig);
 void EMPTY_handle(int sig);

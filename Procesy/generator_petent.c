@@ -1,24 +1,4 @@
-#define _POSIX_C_SOURCE 200809L
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <sys/shm.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/wait.h>
-#include <time.h>
-#include <string.h>
-
-#define ILE_SEMAFOROW 6
-#define SEMAFOR_DYREKTOR 1
-#define SEMAFOR_GENERATOR 2
-#define SEMAFOR_REJESTR 3
-#define SEMAFOR_REJESTR_DWA 4
-#define SEMAFOR_PETENCI 5
+#include "common.h"
 
 // volatile sig_atomic_t ODEBRAC = 0;
 
@@ -27,13 +7,6 @@ int tab[4]; // tab[0] - N, tab[1] - p_id[6], tab[2-3] - pidy kopii rejestrow
 FILE *f;
 time_t t;
 struct tm *t_broken;
-
-union semun
-{
-    int val;
-    struct semid_ds *buf;
-    unsigned short *array;
-};
 
 void SIGUSR1_handle(int sig);
 void SIGUSR2_handle(int sig);

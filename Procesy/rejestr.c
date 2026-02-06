@@ -1,23 +1,4 @@
-#define _POSIX_C_SOURCE 200809L
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <sys/shm.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/wait.h>
-#include <sys/msg.h>
-#include <time.h>
-
-#define SEMAFOR_DYREKTOR 1
-#define SEMAFOR_GENERATOR 2
-#define SEMAFOR_REJESTR 3
-#define SEMAFOR_REJESTR_DWA 4 // semafor dla komunikacji między rejestrami
-#define ILE_SEMAFOROW 6
+#include "common.h"
 
 volatile sig_atomic_t CLOSE = 0;
 
@@ -31,13 +12,6 @@ int tab_X[5] = {
     300,  // X3
     400,  // X4
     1000, // X5
-};
-
-union semun
-{
-    int val;
-    struct semid_ds *buf;
-    unsigned short *array;
 };
 
 struct msgbuf_rejestr // wiadomość od rejestru
