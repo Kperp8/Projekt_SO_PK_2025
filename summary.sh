@@ -1,5 +1,5 @@
 #!/bin/bash
-ile_procesow_made=`cat Logi/generator | grep "generator tworzy petenta" | wc -l`
+ile_procesow_made=`cat Logi/generator | grep "generator stworzyl petenta" | wc -l`
 ile_procesow_sukces=`cat Logi/petent | grep "otrzymal wiadomosc jestes przetworzony" | wc -l`
 ile_procesow_fail=`cat Logi/petent | grep "error" | wc -l`
 
