@@ -10,6 +10,7 @@
 #include <sys/sem.h>
 #include <errno.h>
 #include <string.h>
+#include <pthread.h>
 
 #define ILE_SEMAFOROW 6
 #define SEMAFOR_PETENCI 5
@@ -43,6 +44,7 @@ void EMPTY_handle(int sig);
 
 pid_t recieve_rejestr(pid_t r_pid);
 void handle_urzednik(pid_t u_pid);
+void *opiekun(void *arg);
 void log_msg(char *msg);
 
 int main(int argc, char **argv)
@@ -62,8 +64,7 @@ int main(int argc, char **argv)
         log_msg("error semget");
         exit(1);
     }
-    
-    // TODO: petent nieletni jako dodatkowy wątek
+
     pid_self = getpid();
     vip = atoi(argv[5]);
     signal(SIGUSR2, SIGUSR2_handle);
@@ -77,11 +78,19 @@ int main(int argc, char **argv)
     }
     printf("%s %s %d pid %d vip=%d\n", argv[2], argv[3], atoi(argv[4]), pid_self, vip);
     char message[100];
-    sprintf(message, "petent %s %s pid %d r_pid %d", argv[2], argv[3], pid_self, atoi(argv[1]));
+    sprintf(message, "petent %s %s wiek %d pid %d r_pid %d", argv[2], argv[3], atoi(argv[4]), pid_self, atoi(argv[1]));
     log_msg(message);
     pid_t r_pid = atoi(argv[1]);
-    printf("petent r_pid=%d\n", r_pid);
 
+    if (atoi(argv[4]) < 18) // jeśli nieletni, uruchamiamy oosbny wątek jako opiekuna prawnego
+    {
+        sprintf(message, "%d nieletni obslugiwany", pid_self);
+        log_msg(message);
+        pthread_t tid;
+        pthread_create(&tid, NULL, opiekun, &r_pid);
+        pthread_join(tid, NULL);
+        exit(0);
+    }
 
     pid_t u_pid = recieve_rejestr(r_pid);
     if (u_pid == -1)
@@ -239,6 +248,15 @@ void handle_urzednik(pid_t u_pid)
     exit(0); // żeby dwa razy się nie odzywali jeśli są odesłani
 }
 
+void *opiekun(void *arg)
+{
+    pid_t r_pid = *(pid_t *)arg;
+    pid_t u_pid = recieve_rejestr(r_pid);
+    if (u_pid == -1)
+        raise(SIGUSR2);
+    handle_urzednik(u_pid);
+}
+
 void SIGUSR2_handle(int sig)
 {
     char message[40];
@@ -248,7 +266,7 @@ void SIGUSR2_handle(int sig)
     do
     {
         sleep(10);
-        printf("PID %d - JESTEM SFRUSTROWANY\n", getpid());
+        printf("PID %d - JESTEM SFRUSTROWANY\n", pid_self);
         i += 10;
     } while (i < 20); // TODO: fajnie by byłoby to zrandowmizować, żeby nie mówili wszyscy naraz
     // może różne wiadomości

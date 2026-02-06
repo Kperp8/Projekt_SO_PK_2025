@@ -309,7 +309,7 @@ char *generate_surname()
 char *generate_age()
 {
     static char tab[sizeof(int) * 8];
-    int k = rand() % 65 + 15;
+    int k = rand() % 65 + 7;
     sprintf(tab, "%d", k);
     return tab;
 }
