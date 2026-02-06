@@ -95,7 +95,7 @@ void SIGUSR2_handle(int sig)
     (void)sig;
     FORCE_EXIT = 1;
     if (typ == 5)
-        exit(0);
+        _exit(0);
 }
 
 void SIGINT_handle(int sig)
@@ -103,7 +103,7 @@ void SIGINT_handle(int sig)
     (void)sig;
     FORCE_EXIT = 1;
     if (typ == 5)
-        exit(0);
+        _exit(0);
 }
 
 void EMPTY_handle(int sig)
@@ -258,8 +258,6 @@ void cleanup()
     log_msg(message);
     log_msg("urzednik uruchamia cleanup");
 
-    // TODO: niech wypisze jaki pid wywołał
-    log_msg("urzednik uruchamia cleanup");
     key_t key = ftok(".", getpid());
     if (key == -1)
         perror("urzednik ftok");

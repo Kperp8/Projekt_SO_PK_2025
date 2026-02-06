@@ -40,9 +40,9 @@ void SIGUSR2_handle(int sig);
 void SIGRTMIN_handle(int sig);
 void install_handler(int signo, void (*handler)(int));
 
-int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
+int recieve_dyrektor(int sems, pid_t *shared_mem, int result[]);
 void recieve_rejestr();
-void generate_petent(int N, key_t rejestr_pid[]);
+void generate_petent(int N, pid_t rejestr_pid[]);
 int czy_limity_puste();
 char *generate_name();
 char *generate_surname();
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0);
+    int shm_id = shmget(key, sizeof(pid_t), 0);
     if (shm_id == -1)
     {
         perror("generator shmget");
@@ -95,8 +95,8 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
-    if (shared_mem == (key_t *)-1)
+    pid_t *shared_mem = (pid_t *)shmat(shm_id, NULL, 0);
+    if (shared_mem == (pid_t *)-1)
     {
         perror("generator shmat");
         log_msg("error shmat main");
@@ -153,7 +153,7 @@ void SIGRTMIN_handle(int sig)
     recieve_rejestr();
 }
 
-int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
+int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
 {
     log_msg("generator odbiera od dyrektora");
 
@@ -175,7 +175,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
             }
         }
 
-        result[i] = (int)*shared_mem; // TODO: przesyłanie int a odbieranie key_t jest głupie
+        result[i] = (int)*shared_mem;
 
         // log_msg("generator oddaje semafor DYREKTOR");
         while (semop(sems, &V, 1) == -1)
@@ -193,7 +193,7 @@ int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
     return 0;
 }
 
-void generate_petent(int N, key_t rejestr_pid[])
+void generate_petent(int N, pid_t rejestr_pid[])
 {
     log_msg("generator uruchamia generate_petent");
     struct sembuf P = {.sem_num = SEMAFOR_PETENCI, .sem_op = -1, .sem_flg = 0};
@@ -226,7 +226,7 @@ void generate_petent(int N, key_t rejestr_pid[])
         }
 
         // Tworzymy tablicę aktywnych rejestrów, zawsze z głównym [0]
-        key_t pool[3];
+        pid_t pool[3];
         int pool_size = 1;
         pool[0] = rejestr_pid[0];
 
@@ -236,7 +236,7 @@ void generate_petent(int N, key_t rejestr_pid[])
             pool[pool_size++] = rejestr_pid[2];
 
         // Losowo wybieramy jeden PID z puli (główny zawsze jest obecny)
-        key_t pid_to_use = pool[rand() % pool_size];
+        pid_t pid_to_use = pool[rand() % pool_size];
         sprintf(message, "generator wysyla petenta do rejestru pid=%d", pid_to_use);
         // log_msg(message);
 
@@ -246,7 +246,7 @@ void generate_petent(int N, key_t rejestr_pid[])
 
         semop(sems, &P, 1); // czekamy aż możemy stworzyć petenta
         // log_msg("generator tworzy petenta");
-        key_t pid = fork();
+        pid_t pid = fork();
         if (pid == -1)
         {
             perror("generator fork");
@@ -333,7 +333,7 @@ void recieve_rejestr()
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0);
+    int shm_id = shmget(key, sizeof(pid_t), 0);
     if (shm_id == -1)
     {
         perror("generator shmget");
@@ -341,8 +341,8 @@ void recieve_rejestr()
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
-    if (shared_mem == (key_t *)-1)
+    pid_t *shared_mem = (pid_t *)shmat(shm_id, NULL, 0);
+    if (shared_mem == (pid_t *)-1)
     {
         perror("generator shmat");
         // log_msg("error shmat main");
@@ -368,7 +368,7 @@ void recieve_rejestr()
             }
         }
 
-        tab[i] = *shared_mem;
+        tab[i] = *(int *)shared_mem;
 
         // log_msg("generator oddaje semafor REJESTR");
         while (semop(sems, &V, 1) == -1)
@@ -442,8 +442,8 @@ int czy_limity_puste()
         return 1;
     }
 
-    key_t *tabx = (key_t *)shmat(shm_id, NULL, 0);
-    if (tabx == (key_t *)-1)
+    int *tabx = (int *)shmat(shm_id, NULL, 0);
+    if (tabx == (int *)-1)
     {
         perror("generator shmat");
         exit(1);

@@ -268,8 +268,7 @@ void SIGUSR2_handle(int sig)
         sleep(10);
         printf("PID %d - JESTEM SFRUSTROWANY\n", pid_self);
         i += 10;
-    } while (i < 20); // TODO: fajnie by byłoby to zrandowmizować, żeby nie mówili wszyscy naraz
-    // może różne wiadomości
+    } while (i < 20);
     semop(sems, &V_free, 1);
     exit(0);
 }

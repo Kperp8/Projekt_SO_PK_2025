@@ -52,7 +52,7 @@ void SIGINT_handle(int sig);
 void EMPTY_handle(int sig);
 void install_handler(int signo, void (*handler)(int));
 
-int recieve_dyrektor(int sems, key_t *shared_mem, int result[]);
+int recieve_dyrektor(int sems, pid_t *shared_mem, int result[]);
 void handle_petent(int pid[]);
 int choose_pid(int sems, int tab[]);
 void check_petenci(int N, int K, key_t key, long *shared_mem, pid_t pid[], pid_t pid_generator, int tab[]); // sprawdza ile jest petentow w kolejce, otwiera nowe procesy rejestr
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0);
+    int shm_id = shmget(key, sizeof(pid_t), 0);
     if (shm_id == -1)
     {
         perror("rejestr shmget 1");
@@ -116,8 +116,8 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
-    if (shared_mem == (key_t *)-1)
+    pid_t *shared_mem = (pid_t *)shmat(shm_id, NULL, 0);
+    if (shared_mem == (pid_t *)-1)
     {
         perror("rejestr shmat");
         log_msg("error shmat main");
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
     }
 
     log_msg("rejestr odbiera od dyrektor");
-    key_t tab[8]; // tab[0-4] - p_id, tab[5] - K, tab[6] - N, tab[7] - p_id[7]
+    pid_t tab[8]; // tab[0-4] - p_id, tab[5] - K, tab[6] - N, tab[7] - p_id[7]
     if (recieve_dyrektor(sems, shared_mem, tab) != 0)
     {
         perror("rejestr recieve dyrektor");
@@ -182,8 +182,8 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    shared_mem = (key_t *)shmat(shm_id, NULL, 0);
-    if (shared_mem == (key_t *)-1)
+    int *shared_mem_tabx = (int *)shmat(shm_id, NULL, 0);
+    if (shared_mem_tabx == (int *)-1)
     {
         perror("rejestr shmat");
         log_msg("error shmat main");
@@ -191,9 +191,10 @@ int main(int argc, char **argv)
         exit(1);
     }
     for (int i = 0; i < 5; i++)
-        shared_mem[i] = tab_X[i];
+        shared_mem_tabx[i] = tab_X[i];
 
     shmdt(shared_mem);
+    shmdt(shared_mem_tabx);
 
     arg.val = 1;
     if (semctl(sems, SEMAFOR_REJESTR_DWA, SETVAL, arg) == -1)
@@ -246,7 +247,7 @@ void EMPTY_handle(int sig)
 {
 }
 
-int recieve_dyrektor(int sems, key_t *shared_mem, int result[])
+int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
 {
     log_msg("rejestr uruchamia recieve_dyrektor");
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR, .sem_op = -1, .sem_flg = 0};
@@ -355,7 +356,7 @@ void handle_petent(int pid[])
     }
     
     key_t key_main = ftok(".", 1);
-    if (key_tabx == -1)
+    if (key_main == -1)
     {
         perror("rejestr ftok");
         log_msg("error ftok main handle_petent");
@@ -526,7 +527,7 @@ void handle_petent_klon(int pid[])
     }
 
     key_t key_main = ftok(".", 1);
-    if (key_tabx == -1)
+    if (key_main == -1)
     {
         perror("rejestr klon ftok");
         log_msg("error ftok main handle_petent_klon");
@@ -941,7 +942,7 @@ void send_generator(pid_t pid[])
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0);
+    int shm_id = shmget(key, sizeof(pid_t), 0);
     if (shm_id == -1)
     {
         perror("rejestr shmget 7");
@@ -950,8 +951,8 @@ void send_generator(pid_t pid[])
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0);
-    if (shared_mem == (key_t *)-1)
+    pid_t *shared_mem = (pid_t *)shmat(shm_id, NULL, 0);
+    if (shared_mem == (pid_t *)-1)
     {
         perror("rejestr shmat");
         log_msg("error shmat send_generator");

@@ -10,15 +10,10 @@
 #include <sys/wait.h>
 #include <time.h>
 
-// TODO: typy jak key_t i pid_t są używane niespójnie
 // TODO: większość bibliotek się powtarza, można je upchnąć do jednego pliku
 // TODO: urzędnikom czasami się zamykają kolejki w środku programu
-// TODO: generator czasami wysyła petentów do zamykających się rejestrów
 // TODO: klony rejestru zamykają się za szybko, gubią petentów, dodać semafor
-// TODO: generator znowu gubi sygnał SIGRTMIN
 // TODO: jeśli dyrektor za szybko dostanie SIGINT, nie usuwa struktur systemu V
-// TODO: generator powinien tworzyć non stop
-// liczba petentów w urzędzie powinna być kontrolowana semaforem
 // TODO: może generator przepisać, aby moć go dowolnie uruchamiać
 
 #define ILE_SEMAFOROW 6
@@ -37,7 +32,7 @@ time_t t;
 struct tm *t_broken;
 
 key_t key;
-key_t p_id[ILE_PROCESOW];
+pid_t p_id[ILE_PROCESOW];
 
 union semun
 {
@@ -50,9 +45,9 @@ void SIGINT_handle(int sig);
 void EMPTY_handle(int sig);
 
 void cleanup();
-int recieve_main(int sems, key_t *shared_mem);
-int send_generator(int sems, key_t *shared_mem);
-int send_rejestr(int sems, key_t *shared_mem);
+int recieve_main(int sems, pid_t *shared_mem);
+int send_generator(int sems, pid_t *shared_mem);
+int send_rejestr(int sems, pid_t *shared_mem);
 void log_msg(char *msg);
 
 int main(int argc, char **argv)
@@ -116,7 +111,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int shm_id = shmget(key, sizeof(key_t), 0); // pamiec
+    int shm_id = shmget(key, sizeof(pid_t), 0); // pamiec
     if (shm_id == -1)
     {
         perror("dyrektor shmget");
@@ -125,8 +120,8 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
-    if (shared_mem == (key_t *)-1)
+    pid_t *shared_mem = (pid_t *)shmat(shm_id, NULL, 0); // podlaczamy pamiec
+    if (shared_mem == (pid_t *)-1)
     {
         perror("dyrektor shmat");
         log_msg("error shmat main");
@@ -214,10 +209,10 @@ void cleanup()
         semctl(semid, 0, IPC_RMID);
     else
         perror("dyrektor semget");
-    int shmid = shmget(key, sizeof(key_t), 0);
+    int shmid = shmget(key, sizeof(pid_t), 0);
     if (shmid != -1)
     {
-        key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
+        pid_t *shared_mem = (pid_t *)shmat(shmid, NULL, 0);
         if (shmdt(shared_mem) == -1)
             perror("dyrektor shmdt");
         shmctl(shmid, IPC_RMID, NULL);
@@ -240,7 +235,7 @@ void EMPTY_handle(int sig)
 {
 }
 
-int recieve_main(int sems, key_t *shared_mem)
+int recieve_main(int sems, pid_t *shared_mem)
 {
     log_msg("dyrektor odbiera od main");
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};
@@ -279,7 +274,7 @@ int recieve_main(int sems, key_t *shared_mem)
     return 0;
 }
 
-int send_generator(int sems, key_t *shared_mem)
+int send_generator(int sems, pid_t *shared_mem)
 {
     log_msg("dyrektor wysyla do generator");
 
@@ -319,7 +314,7 @@ int send_generator(int sems, key_t *shared_mem)
     return 0;
 }
 
-int send_rejestr(int sems, key_t *shared_mem)
+int send_rejestr(int sems, pid_t *shared_mem)
 {
     log_msg("dyrektor wysyla do rejestr");
     struct sembuf P = {.sem_num = SEMAFOR_DYREKTOR, .sem_op = -1, .sem_flg = 0};

@@ -23,7 +23,7 @@
 7: generator
 8: dyrektor
 */
-key_t p_id[ILE_PROCESOW]; // tablica pid procesow potomnych
+pid_t p_id[ILE_PROCESOW]; // tablica pid procesow potomnych
 key_t key;
 
 FILE *f;
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     }
 
     // tworzymy pamiec dzieloną
-    int shmid = shmget(key, sizeof(key_t), IPC_CREAT | 0666);
+    int shmid = shmget(key, sizeof(pid_t), IPC_CREAT | 0666);
     if (shmid == -1)
     {
         perror("main shmget");
@@ -91,8 +91,8 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    key_t *shared_mem = (key_t *)shmat(shmid, NULL, 0);
-    if (shared_mem == (key_t *)-1)
+    pid_t *shared_mem = (pid_t *)shmat(shmid, NULL, 0);
+    if (shared_mem == (pid_t *)-1)
     {
         perror("main shmat");
         log_msg("error shmat");
@@ -195,7 +195,7 @@ void start_procesy()
     p_id[++n] = fork();
     if (p_id[n] == 0)
     {
-        execl("Procesy/dyrektor", "Procesy/dyrektor", key_str, NULL); // TODO: prześlij p_id[]
+        execl("Procesy/dyrektor", "Procesy/dyrektor", key_str, NULL);
         perror("main - execl dyrektor");
         log_msg("error execl dyrektor");
         cleanup();
