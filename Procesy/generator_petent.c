@@ -4,6 +4,7 @@
 struct sembuf P_start = {.sem_num = SEMAFOR_START, .sem_op = -1, .sem_flg = 0};
 
 int tab[4]; // tab[0] - N, tab[1] - p_id[6], tab[2-3] - pidy kopii rejestrow
+int active;
 
 FILE *f;
 time_t t;
@@ -144,11 +145,12 @@ void *reaper_thread(void *arg)
         // czyścimy wszystkie zakończone dzieci bez blokowania
         while ((pid = waitpid(-1, &status, 0)) > 0)
         {
+            active--;
         }
         // struct timespec ts;
         // ts.tv_sec = 0;          // sekundy
         // ts.tv_nsec = 10000000; // nanosekundy (0.01 s) żeby nie obciążać CPU
-        // nanosleep(&ts, NULL);   
+        // nanosleep(&ts, NULL);
     }
     return NULL;
 }
@@ -195,6 +197,7 @@ int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
 
 void generate_petent(int N, pid_t rejestr_pid[])
 {
+    active = 0;
     log_msg("generator uruchamia generate_petent");
     struct sembuf P = {.sem_num = SEMAFOR_PETENCI, .sem_op = -1, .sem_flg = 0};
 
@@ -244,35 +247,39 @@ void generate_petent(int N, pid_t rejestr_pid[])
         char r_pid[32];
         sprintf(r_pid, "%d", pid_to_use);
 
-        semop(sems, &P, 1); // czekamy aż możemy stworzyć petenta
-        // log_msg("generator tworzy petenta");
-        pid_t pid = fork();
-        if (pid == -1)
+        // semop(sems, &P, 1); // czekamy aż możemy stworzyć petenta
+        if (active < N)
         {
-            perror("generator fork");
-            exit(1);
+            // log_msg("generator tworzy petenta");
+            active++;
+            pid_t pid = fork();
+            if (pid == -1)
+            {
+                perror("generator fork");
+                exit(1);
+            }
+            if (pid == 0)
+            {
+                srand(time(NULL) ^ getpid());
+                // losujemy czy petent będzie VIP
+                char vip[32];
+                int v;
+                v = rand() % 20 == 0 ? 1 : 0;
+                sprintf(vip, "%d", v);
+                if (kill(pid_to_use, 0) == -1) // sprawdzamy, czy rejestr dalej istnieje, potencjalnie dalej może zawieść
+                    if (errno == ESRCH)
+                    {
+                        // log_msg("wybrany rejestr juz nie istnieje – losujemy ponownie");
+                        sprintf(r_pid, "%d", rejestr_pid[0]); // awaryjnie wysyłamy do pierwszej kolejki
+                    }
+                // bardzo źle, jeśli tu dostaniemy sygnał
+                execl("Procesy/petent", "Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), vip, NULL);
+                perror("generator - execl petent");
+                exit(1);
+            }
+            else
+                log_msg("generator stworzyl petenta");
         }
-        if (pid == 0)
-        {
-            srand(time(NULL) ^ getpid());
-            // losujemy czy petent będzie VIP
-            char vip[32];
-            int v;
-            v = rand() % 20 == 0 ? 1 : 0;
-            sprintf(vip, "%d", v);
-            if (kill(pid_to_use, 0) == -1) // sprawdzamy, czy rejestr dalej istnieje, potencjalnie dalej może zawieść
-                if (errno == ESRCH)
-                {
-                    // log_msg("wybrany rejestr juz nie istnieje – losujemy ponownie");
-                    sprintf(r_pid, "%d", rejestr_pid[0]); // awaryjnie wysyłamy do pierwszej kolejki
-                }
-            // bardzo źle, jeśli tu dostaniemy sygnał
-            execl("Procesy/petent", "Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), vip, NULL);
-            perror("generator - execl petent");
-            exit(1);
-        }
-        else
-            log_msg("generator stworzyl petenta");
     }
 }
 

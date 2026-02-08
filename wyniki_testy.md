@@ -185,8 +185,32 @@ Marcin Kowalczyk 49 pid 84151 vip=0
 
 ### Wyniki
 
-* Semafory gwarantują, że logicznie pracuje jedynie N petentów, ale zazwyczaj uruchomionych jest więcej (w trakcie wyłączania itp).
+* **`ps` w trakcie działania:**
+```
+  PID TTY          TIME CMD
+  5638 pts/1    00:00:00 bash
+  13602 pts/1    00:00:00 main
+  13603 pts/1    00:00:00 urzednik
+  13604 pts/1    00:00:00 urzednik
+  13605 pts/1    00:00:00 urzednik
+  13606 pts/1    00:00:00 urzednik
+  13607 pts/1    00:00:00 urzednik
+  13608 pts/1    00:00:00 urzednik
+  13609 pts/1    00:00:00 rejestr
+  13610 pts/1    00:00:03 generator_peten
+  13611 pts/1    00:00:00 dyrektor
+  13898 pts/1    00:00:00 petent
+  13921 pts/1    00:00:00 petent
+  13975 pts/1    00:00:00 petent
+  13979 pts/1    00:00:00 petent
+  13986 pts/1    00:00:00 petent
+  14017 pts/1    00:00:00 ps
+```
 
+Program został zatrzymany jeszcze kilka razy z tym samy rezultatem.
+
+**Wnioski**
+* Program poprawnie utrzymuje ilość petentów
 ---
 
 ## Test 5: Weryfikacja dodatkowych rejestrów

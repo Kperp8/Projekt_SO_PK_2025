@@ -9,11 +9,11 @@ time_t t;
 struct tm *t_broken;
 
 int tab_X[5] = {
-    5000,  // X1
-    5000,  // X2
-    5000,  // X3
-    5000,  // X4
-    5000, // X5
+    1000,  // X1
+    1000,  // X2
+    1000,  // X3
+    1000,  // X4
+    1000, // X5
 };
 
 struct msgbuf_rejestr // wiadomość od rejestru

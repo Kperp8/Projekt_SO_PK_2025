@@ -1,8 +1,5 @@
 #include "common.h"
 
-// TODO: TEST weryfikacja ilości petentów
-// TODO: na razie jest 2x tyle procesów co ma być, nie wiem czemu
-
 time_t Tp, Tk;
 int N = 5, K = 2;
 
