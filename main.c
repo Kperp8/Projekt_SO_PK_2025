@@ -94,14 +94,12 @@ int main(int argc, char **argv)
 void cleanup()
 {
     log_msg("main wykonuje cleanup");
-    // kill(p_id[9], SIGINT);
-    // waitpid(p_id[9], NULL, 0);
     fclose(f);
 }
 
 void SIGINT_handle(int sig)
 {
-    log_msg("main przechwycil SIGINT"); // asyns-unsafe, uwaga
+    log_msg("main przechwycil SIGINT");
     cleanup();
     exit(0);
 }

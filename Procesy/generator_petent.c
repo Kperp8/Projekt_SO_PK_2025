@@ -4,6 +4,7 @@
 struct sembuf P_start = {.sem_num = SEMAFOR_START, .sem_op = -1, .sem_flg = 0};
 
 int tab[4]; // tab[0] - N, tab[1] - p_id[6], tab[2-3] - pidy kopii rejestrow
+int active;
 
 FILE *f;
 time_t t;
@@ -26,7 +27,6 @@ void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
-    // raise(SIGSTOP);
     f = fopen("./Logi/petent", "w"); // otwieramy pusty plik dla petentow
     if (!f)
     {
@@ -130,8 +130,6 @@ void SIGUSR2_handle(int sig)
 
 void SIGRTMIN_handle(int sig)
 {
-    // niech wywołuje recieve_rejestr()
-    // ODEBRAC = 1;
     recieve_rejestr();
 }
 
@@ -143,12 +141,7 @@ void *reaper_thread(void *arg)
         pid_t pid;
         // czyścimy wszystkie zakończone dzieci bez blokowania
         while ((pid = waitpid(-1, &status, 0)) > 0)
-        {
-        }
-        // struct timespec ts;
-        // ts.tv_sec = 0;          // sekundy
-        // ts.tv_nsec = 10000000; // nanosekundy (0.01 s) żeby nie obciążać CPU
-        // nanosleep(&ts, NULL);   
+            active--;
     }
     return NULL;
 }
@@ -162,7 +155,6 @@ int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
 
     for (int i = 0; i < 2; i++)
     {
-        // log_msg("generator blokuje semafor GENERATOR");
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
@@ -170,14 +162,12 @@ int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
             else
             {
                 perror("generator semop P");
-                // log_msg("error semop recieve_dyrektor");
                 return 1;
             }
         }
 
         result[i] = (int)*shared_mem;
 
-        // log_msg("generator oddaje semafor DYREKTOR");
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
@@ -185,7 +175,6 @@ int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
             else
             {
                 perror("generator semop V");
-                // log_msg("error semop recieve_dyrektor");
                 return 1;
             }
         }
@@ -195,6 +184,7 @@ int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
 
 void generate_petent(int N, pid_t rejestr_pid[])
 {
+    active = 0;
     log_msg("generator uruchamia generate_petent");
     struct sembuf P = {.sem_num = SEMAFOR_PETENCI, .sem_op = -1, .sem_flg = 0};
 
@@ -237,42 +227,40 @@ void generate_petent(int N, pid_t rejestr_pid[])
 
         // Losowo wybieramy jeden PID z puli (główny zawsze jest obecny)
         pid_t pid_to_use = pool[rand() % pool_size];
-        // sprintf(message, "generator wysyla petenta do rejestru pid=%d", pid_to_use);
-        // log_msg(message);
 
         // Konwertujemy PID na string
         char r_pid[32];
         sprintf(r_pid, "%d", pid_to_use);
 
-        semop(sems, &P, 1); // czekamy aż możemy stworzyć petenta
-        // log_msg("generator tworzy petenta");
-        pid_t pid = fork();
-        if (pid == -1)
+        // z semaforami był błąd, którego nie potrafiłem naprawić
+        // semop(sems, &P, 1); // czekamy aż możemy stworzyć petenta
+        if (active < N)
         {
-            perror("generator fork");
-            exit(1);
+            active++;
+            pid_t pid = fork();
+            if (pid == -1)
+            {
+                perror("generator fork");
+                exit(1);
+            }
+            if (pid == 0)
+            {
+                srand(time(NULL) ^ getpid());
+                // losujemy czy petent będzie VIP
+                char vip[32];
+                int v;
+                v = rand() % 20 == 0 ? 1 : 0;
+                sprintf(vip, "%d", v);
+                if (kill(pid_to_use, 0) == -1) // sprawdzamy, czy rejestr dalej istnieje, potencjalnie dalej może zawieść
+                    if (errno == ESRCH)
+                        sprintf(r_pid, "%d", rejestr_pid[0]); // awaryjnie wysyłamy do pierwszej kolejki
+                execl("Procesy/petent", "Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), vip, NULL);
+                perror("generator - execl petent");
+                exit(1);
+            }
+            else
+                log_msg("generator stworzyl petenta");
         }
-        if (pid == 0)
-        {
-            srand(time(NULL) ^ getpid());
-            // losujemy czy petent będzie VIP
-            char vip[32];
-            int v;
-            v = rand() % 20 == 0 ? 1 : 0;
-            sprintf(vip, "%d", v);
-            if (kill(pid_to_use, 0) == -1) // sprawdzamy, czy rejestr dalej istnieje, potencjalnie dalej może zawieść
-                if (errno == ESRCH)
-                {
-                    // log_msg("wybrany rejestr juz nie istnieje – losujemy ponownie");
-                    sprintf(r_pid, "%d", rejestr_pid[0]); // awaryjnie wysyłamy do pierwszej kolejki
-                }
-            // bardzo źle, jeśli tu dostaniemy sygnał
-            execl("Procesy/petent", "Procesy/petent", r_pid, generate_name(), generate_surname(), generate_age(), vip, NULL);
-            perror("generator - execl petent");
-            exit(1);
-        }
-        else
-            log_msg("generator stworzyl petenta");
     }
 }
 
@@ -316,12 +304,10 @@ char *generate_age()
 
 void recieve_rejestr()
 {
-    // log_msg("generator uruchamia recieve_rejestr");
     key_t key = ftok(".", 1);
     if (key == -1)
     {
         perror("generator - ftok");
-        // log_msg("error ftok main");
         exit(1);
     }
 
@@ -329,7 +315,6 @@ void recieve_rejestr()
     if (sems == -1)
     {
         perror("generator semget");
-        // log_msg("error semget main");
         exit(1);
     }
 
@@ -337,7 +322,6 @@ void recieve_rejestr()
     if (shm_id == -1)
     {
         perror("generator shmget");
-        // log_msg("error shmget main");
         exit(1);
     }
 
@@ -345,17 +329,14 @@ void recieve_rejestr()
     if (shared_mem == (pid_t *)-1)
     {
         perror("generator shmat");
-        // log_msg("error shmat main");
         exit(1);
     }
 
     struct sembuf P = {.sem_num = SEMAFOR_GENERATOR, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR, .sem_op = +1, .sem_flg = 0};
 
-    // log_msg("generator odbiera dane");
     for (int i = 1; i < 4; i++)
     {
-        // log_msg("generator blokuje semafor GENERATOR");
         while (semop(sems, &P, 1) == -1)
         {
             if (errno == EINTR)
@@ -363,14 +344,12 @@ void recieve_rejestr()
             else
             {
                 perror("generator semop P");
-                // log_msg("error semop rejestr");
                 exit(1);
             }
         }
 
         tab[i] = *(int *)shared_mem;
 
-        // log_msg("generator oddaje semafor REJESTR");
         while (semop(sems, &V, 1) == -1)
         {
             if (errno == EINTR)
@@ -378,13 +357,10 @@ void recieve_rejestr()
             else
             {
                 perror("generator semop V");
-                // log_msg("error semop rejestr");
                 exit(1);
             }
         }
     }
-
-    // log_msg("generator odebral pidy od rejestru");
 
     while (semop(sems, &V, 1) == -1) // dajemy znać rejestrowi, że generator na pewno skończył
     {
@@ -393,7 +369,6 @@ void recieve_rejestr()
         else
         {
             perror("generator semop V");
-            // log_msg("error semop rejestr");
             exit(1);
         }
     }
@@ -403,7 +378,6 @@ void recieve_rejestr()
 
 int czy_limity_puste()
 {
-    // log_msg("generator sprawdza limity urzednikow");
     struct sembuf P = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = SEMAFOR_REJESTR_DWA, .sem_op = +1, .sem_flg = 0};
 
@@ -411,14 +385,12 @@ int czy_limity_puste()
     if (key == -1)
     {
         perror("generator ftok");
-        // log_msg("error ftok czy_limity");
         exit(1);
     }
     key_t key_tabx = ftok(".", 2);
     if (key_tabx == -1)
     {
         perror("generator ftok");
-        // log_msg("error ftok tabx czy_limity");
         exit(1);
     }
 
@@ -426,18 +398,15 @@ int czy_limity_puste()
     if (sems == -1)
     {
         perror("generator semget");
-        // log_msg("error semget cz_limity");
         exit(1);
     }
 
-    // log_msg("generator blokuje semafor REJESTR_DWA");
     semop(sems, &P, 1);
 
     int shm_id = shmget(key_tabx, sizeof(int) * 5, 0);
     if (shm_id == -1)
     {
         perror("generator shmget tabx");
-        // log_msg("generator oddaje semafor REJESTR_DWA");
         semop(sems, &V, 1);
         return 1;
     }
@@ -457,7 +426,6 @@ int czy_limity_puste()
             flaga = 0;
             break;
         }
-    // log_msg("generator oddaje semafor REJESTR_DWA");
     semop(sems, &V, 1);
     shmdt(tabx);
 

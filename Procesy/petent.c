@@ -59,7 +59,8 @@ int main(int argc, char **argv)
     if (!f)
     {
         perror("petent fopen");
-        semop(sems, &V_free, 1);
+        // z semaforami był bug, którego nie potrafiłem naprawić
+        // semop(sems, &V_free, 1);
         exit(1);
     }
     printf("%s %s %d pid %d vip=%d\n", argv[2], argv[3], atoi(argv[4]), pid_self, vip);
@@ -81,7 +82,7 @@ int main(int argc, char **argv)
     pid_t u_pid = recieve_rejestr(r_pid);
     if (u_pid == -1)
     {
-        semop(sems, &V_free, 1);
+        // semop(sems, &V_free, 1);
         exit(0);
     }
     handle_urzednik(u_pid);
@@ -100,7 +101,7 @@ pid_t recieve_rejestr(pid_t r_pid)
         perror("petent ftok");
         sprintf(message, "%d error ftok recieve_rejestr", pid_self);
         log_msg(message);
-        semop(sems, &V_free, 1); // zwalniamy miejsce w budynku
+        // semop(sems, &V_free, 1); // zwalniamy miejsce w budynku
         exit(1);
     }
 
@@ -128,25 +129,13 @@ pid_t recieve_rejestr(pid_t r_pid)
         kill(r_pid, SIGRTMIN);
     msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
-    // sprintf(message, "%d wysyla wiadomosc do rejestr", pid_self);
-    // log_msg(message);
     msgsnd(msgid, &msg, sizeof(pid_t), 0);
-    // sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
-    // log_msg(message);
     semop(sems, &P, 1);
     (*shared_mem)++;
-    // sprintf(message, "%d oddaje semafor 0 rejestr", pid_self);
-    // log_msg(message);
     semop(sems, &V, 1);
-    // sprintf(message, "%d odbiera wiadomosc", pid_self);
-    // log_msg(message);
     msgrcv(msgid, &msg, sizeof(pid_t), pid_self, 0);
-    // sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
-    // log_msg(message);
     semop(sems, &P, 1);
     (*shared_mem)--;
-    // sprintf(message, "%d oddaje semafor 0 rejestr", pid_self);
-    // log_msg(message);
     semop(sems, &V, 1);
     shmdt(shared_mem);
     return msg.pid != pid_self ? msg.pid : -1;
@@ -164,7 +153,7 @@ void handle_urzednik(pid_t u_pid)
         perror("petent ftok");
         sprintf(message, "%d error ftok handle_urzednik", pid_self);
         log_msg(message);
-        semop(sems, &V_free, 1);
+        // semop(sems, &V_free, 1);
         exit(1);
     }
 
@@ -177,12 +166,8 @@ void handle_urzednik(pid_t u_pid)
         kill(u_pid, SIGRTMIN);
     msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
-    // sprintf(message, "%d wysyla wiadomosc do urzednik", pid_self);
-    // log_msg(message);
     if (msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0) == -1)
         raise(SIGUSR2);
-    // sprintf(message, "%d odbiera wiadomosc", pid_self);
-    // log_msg(message);
     if (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0) == -1)
         raise(SIGUSR2);
     if (msg.pid != -1)
@@ -207,7 +192,7 @@ void handle_urzednik(pid_t u_pid)
     printf("pid %d otrzymal - %s", pid_self, msg.mtext);
     sprintf(message, "%d otrzymal wiadomosc %s", pid_self, msg.mtext);
     log_msg(message);
-    semop(sems, &V_free, 1);
+    // semop(sems, &V_free, 1);
     exit(0); // żeby dwa razy się nie odzywali jeśli są odesłani
 }
 
@@ -233,7 +218,7 @@ void SIGUSR2_handle(int sig)
         printf("PID %d - JESTEM SFRUSTROWANY\n", pid_self);
         i += 10;
     } while (i < 20);
-    semop(sems, &V_free, 1);
+    // semop(sems, &V_free, 1);
     _exit(0);
 }
 

@@ -1,10 +1,7 @@
 #include "common.h"
 
-// TODO: TEST weryfikacja ilości petentów
-// TODO: na razie jest 2x tyle procesów co ma być, nie wiem czemu
-
 time_t Tp, Tk;
-int N = 5, K = 2;
+int N = 27, K = 9;
 
 FILE *f;
 time_t t;
@@ -162,7 +159,6 @@ int main(int argc, char **argv)
     while (n++ < how_long)
         sleep(1);
 
-    // for (int i = 0; i < ILE_PROCESOW; i++)
     kill(0, which == 0 ? SIGUSR1 : SIGUSR2);
     for (int i = 0; i < ILE_PROCESOW; i++)
         waitpid(p_id[i], NULL, 0);
