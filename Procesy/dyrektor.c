@@ -1,12 +1,12 @@
 #include "common.h"
 
 // TODO: urzędnikom czasami się zamykają kolejki w środku programu
-// TODO: klony rejestru zamykają się za szybko, gubią petentów, dodać semafor
 // TODO: jeśli dyrektor za szybko dostanie SIGINT, nie usuwa struktur systemu V
 // TODO: może generator przepisać, aby moć go dowolnie uruchamiać
+// TODO: ctrl+z i fg przed odczekaniem tk uruchamia program przedwcześnie
 
 time_t Tp, Tk;
-int N = 27, K = 9;
+int N = 60, K = 20;
 
 FILE *f;
 time_t t;
@@ -29,7 +29,6 @@ int main(int argc, char **argv)
     signal(SIGINT, SIGINT_handle);
     signal(SIGUSR1, EMPTY_handle);
     signal(SIGUSR2, EMPTY_handle);
-    printf("dyrektor\n");
 
     time_t now, tp, tk, how_long;
     struct tm tm_tp, tm_tk;
@@ -74,7 +73,6 @@ int main(int argc, char **argv)
 
     sleep(tp - now);
     log_msg("dyrektor uruchamia reszte procesow");
-    kill(0, SIGCONT);
 
     int sems = semget(key, ILE_SEMAFOROW, 0); // semafory
     if (sems == -1)
@@ -121,6 +119,14 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+    arg.val = ILE_PROCESOW;
+    if (semctl(sems, SEMAFOR_START, SETVAL, arg) == -1)
+    {
+        perror("dyrektor semctl");
+        log_msg("error recieve_main");
+        cleanup();
+        exit(1);
+    }
     arg.val = 1;
     if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
     {
@@ -157,8 +163,6 @@ int main(int argc, char **argv)
     time_t n = 0;
     while (n++ < how_long)
         sleep(1);
-
-    // sleep(40);
 
     // for (int i = 0; i < ILE_PROCESOW; i++)
     kill(0, which == 0 ? SIGUSR1 : SIGUSR2);

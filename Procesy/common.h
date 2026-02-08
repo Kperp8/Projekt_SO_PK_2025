@@ -17,13 +17,14 @@
 #include <sys/msg.h>
 #include <sys/wait.h>
 
-#define ILE_SEMAFOROW 6
+#define ILE_SEMAFOROW 7
 #define SEMAFOR_MAIN 0
 #define SEMAFOR_DYREKTOR 1
 #define SEMAFOR_GENERATOR 2
 #define SEMAFOR_REJESTR 3
 #define SEMAFOR_REJESTR_DWA 4
 #define SEMAFOR_PETENCI 5
+#define SEMAFOR_START 6
 #define ILE_PROCESOW 8 // 0-5 urzednicy, 6-rejestr, 7-generator, 8-dyrektor
 
 union semun {

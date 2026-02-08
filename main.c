@@ -178,6 +178,8 @@ void start_procesy()
         exit(1);
     }
     log_msg("main uruchomil dyrektor");
+
+    printf("Wszystkie procesy uruchomione\n");
 }
 
 void init_sem(int sems)
@@ -208,6 +210,13 @@ void init_sem(int sems)
         exit(1);
     }
     if (semctl(sems, SEMAFOR_REJESTR, SETVAL, arg) == -1)
+    {
+        perror("main semctl");
+        log_msg("error semctl SETVAL");
+        cleanup();
+        exit(1);
+    }
+    if (semctl(sems, SEMAFOR_START, SETVAL, arg) == -1)
     {
         perror("main semctl");
         log_msg("error semctl SETVAL");

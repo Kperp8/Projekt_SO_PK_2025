@@ -7,6 +7,8 @@ struct tm *t_broken;
 volatile sig_atomic_t CLOSE_GENTLY = 0;
 volatile sig_atomic_t FORCE_EXIT = 0;
 
+struct sembuf P_start = {.sem_num = SEMAFOR_START, .sem_op = -1, .sem_flg = 0};
+
 int typ;
 
 struct msgbuf_urzednik // wiadomość od urzednika
@@ -33,8 +35,7 @@ int main(int argc, char **argv)
     install_handler(SIGINT, SIGINT_handle);
     install_handler(SIGRTMIN, EMPTY_handle);
     srand(time(NULL));
-    printf("urzednik\n");
-    raise(SIGSTOP);
+    // raise(SIGSTOP);
 
     key_t key = atoi(argv[1]);
     typ = atoi(argv[2]);
@@ -48,6 +49,16 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
+
+    int sems = semget(key, ILE_SEMAFOROW, 0);
+    if (sems == -1)
+    {
+        perror("urzednik semget");
+        cleanup();
+        exit(1);
+    }
+
+    semop(sems, &P_start, 1);
     log_msg("urzednik uruchomiony");
 
     handle_petent();

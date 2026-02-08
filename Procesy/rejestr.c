@@ -2,16 +2,18 @@
 
 volatile sig_atomic_t CLOSE = 0;
 
+struct sembuf P_start = {.sem_num = SEMAFOR_START, .sem_op = -1, .sem_flg = 0};
+
 FILE *f;
 time_t t;
 struct tm *t_broken;
 
 int tab_X[5] = {
-    150,  // X1
-    600,  // X2
-    300,  // X3
+    1000,  // X1
+    500,  // X2
+    600,  // X3
     400,  // X4
-    1000, // X5
+    2000, // X5
 };
 
 struct msgbuf_rejestr // wiadomość od rejestru
@@ -42,9 +44,8 @@ int main(int argc, char **argv)
     install_handler(SIGUSR2, SIGUSR2_handle);
     install_handler(SIGINT, SIGINT_handle);
     install_handler(SIGRTMIN, EMPTY_handle);
-    raise(SIGSTOP);
+    // raise(SIGSTOP);
     srand(time(NULL));
-    printf("rejestr %d\n", getpid());
 
     f = fopen("./Logi/rejestr_1", "w"); // otwieramy dla klonów
     if (!f)
@@ -70,7 +71,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    log_msg("rejestr sie uruchamia");
     key_t key;
     key = atoi(argv[1]);
 
@@ -97,6 +97,9 @@ int main(int argc, char **argv)
         log_msg("error shmat main");
         exit(1);
     }
+
+    semop(sems, &P_start, 1);
+    log_msg("rejestr uruchomiony");
 
     log_msg("rejestr odbiera od dyrektor");
     pid_t tab[8]; // tab[0-4] - p_id, tab[5] - K, tab[6] - N, tab[7] - p_id[7]

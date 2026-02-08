@@ -103,43 +103,19 @@ pid_t recieve_rejestr(pid_t r_pid)
 
     int msgid = msgget(key, 0);
     if (msgid == -1)
-    {
-        perror("petent msgget");
-        sprintf(message, "%d error msgget recieve_rejestr", pid_self);
-        log_msg(message);
-        semop(sems, &V_free, 1);
-        exit(1);
-    }
+        return -1;
 
     int shm_id = shmget(key, sizeof(long), 0);
     if (shm_id == -1)
-    {
-        perror("petent shmget");
-        sprintf(message, "%d error shmget recieve_rejestr", pid_self);
-        log_msg(message);
-        semop(sems, &V_free, 1);
-        exit(1);
-    }
+        return -1;
 
     long *shared_mem = (long *)shmat(shm_id, NULL, 0);
     if (shared_mem == (long *)-1)
-    {
-        perror("petent shmat");
-        sprintf(message, "%d error shmat recieve_rejestr", pid_self);
-        log_msg(message);
-        semop(sems, &V_free, 1);
-        exit(1);
-    }
+        return -1;
 
     int sems = semget(key, 1, 0);
     if (sems == -1)
-    {
-        perror("petent semget");
-        sprintf(message, "%d error semget recieve_rejestr", pid_self);
-        log_msg(message);
-        semop(sems, &V_free, 1);
-        exit(1);
-    }
+        return -1;
 
     struct sembuf P = {.sem_num = 0, .sem_op = -1, .sem_flg = 0};
     struct sembuf V = {.sem_num = 0, .sem_op = +1, .sem_flg = 0};

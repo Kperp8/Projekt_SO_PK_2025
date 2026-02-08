@@ -1,6 +1,6 @@
 #include "common.h"
 
-// volatile sig_atomic_t ODEBRAC = 0;
+struct sembuf P_start = {.sem_num = SEMAFOR_START, .sem_op = -1, .sem_flg = 0};
 
 int tab[4]; // tab[0] - N, tab[1] - p_id[6], tab[2-3] - pidy kopii rejestrow
 
@@ -24,7 +24,7 @@ void log_msg(char *msg);
 
 int main(int argc, char **argv)
 {
-    raise(SIGSTOP);
+    // raise(SIGSTOP);
     f = fopen("./Logi/petent", "w"); // otwieramy pusty plik dla petentow
     if (!f)
     {
@@ -39,15 +39,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    log_msg("generator uruchomiony");
-
     install_handler(SIGUSR1, SIGUSR1_handle);
     install_handler(SIGUSR2, SIGUSR2_handle);
     install_handler(SIGRTMIN, SIGRTMIN_handle);
 
     srand(time(NULL));
-
-    printf("generator\n");
 
     key_t key;
     key = atoi(argv[1]);
@@ -75,6 +71,9 @@ int main(int argc, char **argv)
         log_msg("error shmat main");
         exit(1);
     }
+
+    semop(sems, &P_start, 1);
+    log_msg("generator uruchomiony");
 
     for (int i = 0; i < 4; i++)
         tab[i] = -1;
