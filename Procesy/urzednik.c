@@ -35,7 +35,6 @@ int main(int argc, char **argv)
     install_handler(SIGINT, SIGINT_handle);
     install_handler(SIGRTMIN, EMPTY_handle);
     srand(time(NULL));
-    // raise(SIGSTOP);
 
     key_t key = atoi(argv[1]);
     typ = atoi(argv[2]);
@@ -177,7 +176,7 @@ void handle_petent(void)
                     continue;
                 if (errno == EIDRM)
                 {
-                    msgid = msgget(key, IPC_CREAT | 0666); // bandaid fix
+                    msgid = msgget(key, IPC_CREAT | 0666); // pozostawione po starym bugu
                     continue;
                 }
                 perror("urzednik msgrcv VIP");
@@ -195,10 +194,8 @@ void handle_petent(void)
                 if (errno == EIDRM)
                 {
                     msgid = msgget(key, IPC_CREAT | 0666);
-                    perror("o co cho");
                     log_msg("nie powinno sie zdarzyc, ale...");
-                    // cleanup();
-                    // exit(1);
+                    continue;
                 }
                 perror("urzednik msgrcv normal");
                 log_msg("error msgrcv normal");
