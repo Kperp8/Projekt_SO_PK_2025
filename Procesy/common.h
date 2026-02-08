@@ -25,7 +25,7 @@
 #define SEMAFOR_REJESTR_DWA 4
 #define SEMAFOR_PETENCI 5
 #define SEMAFOR_START 6
-#define ILE_PROCESOW 8 // 0-5 urzednicy, 6-rejestr, 7-generator, 8-dyrektor
+#define ILE_PROCESOW 9 // 0-5 urzednicy, 6-rejestr, 7-generator, 8-dyrektor
 
 union semun {
     int val;

@@ -94,14 +94,8 @@ int main(int argc, char **argv)
 void cleanup()
 {
     log_msg("main wykonuje cleanup");
-    // int semid = semget(key, 0, 0);
-    // if (semid != -1)
-    //     semctl(semid, 0, IPC_RMID);
-    // // usuwamy dzieloną pamięć
-    // int shmid = shmget(key, sizeof(key_t), 0);
-    // if (shmid != -1)
-    //     shmctl(shmid, IPC_RMID, NULL);
-    kill(p_id[8], SIGINT);
+    // kill(p_id[9], SIGINT);
+    // waitpid(p_id[9], NULL, 0);
     fclose(f);
 }
 
@@ -217,6 +211,13 @@ void init_sem(int sems)
         exit(1);
     }
     if (semctl(sems, SEMAFOR_START, SETVAL, arg) == -1)
+    {
+        perror("main semctl");
+        log_msg("error semctl SETVAL");
+        cleanup();
+        exit(1);
+    }
+    if (semctl(sems, SEMAFOR_PETENCI, SETVAL, arg) == -1)
     {
         perror("main semctl");
         log_msg("error semctl SETVAL");

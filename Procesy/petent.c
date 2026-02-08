@@ -64,11 +64,11 @@ int main(int argc, char **argv)
     }
     printf("%s %s %d pid %d vip=%d\n", argv[2], argv[3], atoi(argv[4]), pid_self, vip);
     char message[100];
-    sprintf(message, "petent %s %s wiek %d pid %d r_pid %d", argv[2], argv[3], atoi(argv[4]), pid_self, atoi(argv[1]));
+    sprintf(message, "petent %s %s wiek %d pid %d r_pid %d vip %d", argv[2], argv[3], atoi(argv[4]), pid_self, atoi(argv[1]), vip);
     log_msg(message);
     pid_t r_pid = atoi(argv[1]);
 
-    if (atoi(argv[4]) < 18) // jeśli nieletni, uruchamiamy oosbny wątek jako opiekuna prawnego
+    if (atoi(argv[4]) < 18) // jeśli nieletni, uruchamiamy osobny wątek jako opiekuna prawnego
     {
         sprintf(message, "%d nieletni obslugiwany", pid_self);
         log_msg(message);
@@ -80,7 +80,10 @@ int main(int argc, char **argv)
 
     pid_t u_pid = recieve_rejestr(r_pid);
     if (u_pid == -1)
-        raise(SIGUSR2);
+    {
+        semop(sems, &V_free, 1);
+        exit(0);
+    }
     handle_urzednik(u_pid);
     return 0;
 }
@@ -125,25 +128,25 @@ pid_t recieve_rejestr(pid_t r_pid)
         kill(r_pid, SIGRTMIN);
     msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
-    sprintf(message, "%d wysyla wiadomosc do rejestr", pid_self);
-    log_msg(message);
+    // sprintf(message, "%d wysyla wiadomosc do rejestr", pid_self);
+    // log_msg(message);
     msgsnd(msgid, &msg, sizeof(pid_t), 0);
-    sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
-    log_msg(message);
+    // sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
+    // log_msg(message);
     semop(sems, &P, 1);
     (*shared_mem)++;
-    sprintf(message, "%d oddaje semafor 0 rejestr", pid_self);
-    log_msg(message);
+    // sprintf(message, "%d oddaje semafor 0 rejestr", pid_self);
+    // log_msg(message);
     semop(sems, &V, 1);
-    sprintf(message, "%d odbiera wiadomosc", pid_self);
-    log_msg(message);
+    // sprintf(message, "%d odbiera wiadomosc", pid_self);
+    // log_msg(message);
     msgrcv(msgid, &msg, sizeof(pid_t), pid_self, 0);
-    sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
-    log_msg(message);
+    // sprintf(message, "%d blokuje semafor 0 rejestr", pid_self);
+    // log_msg(message);
     semop(sems, &P, 1);
     (*shared_mem)--;
-    sprintf(message, "%d oddaje semafor 0 rejestr", pid_self);
-    log_msg(message);
+    // sprintf(message, "%d oddaje semafor 0 rejestr", pid_self);
+    // log_msg(message);
     semop(sems, &V, 1);
     shmdt(shared_mem);
     return msg.pid != pid_self ? msg.pid : -1;
@@ -167,25 +170,21 @@ void handle_urzednik(pid_t u_pid)
 
     int msgid = msgget(key, 0);
     if (msgid == -1)
-    {
-        perror("petent msgget");
-        sprintf(message, "%d error msgget handle_urzednik", pid_self);
-        log_msg(message);
-        semop(sems, &V_free, 1);
-        exit(1);
-    }
+        raise(SIGUSR2);
 
     struct msgbuf_urzednik msg;
     if (vip)
         kill(u_pid, SIGRTMIN);
     msg.mtype = vip == 1 ? 2 : 1;
     msg.pid = getpid();
-    sprintf(message, "%d wysyla wiadomosc do urzednik", pid_self);
-    log_msg(message);
-    msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0);
-    sprintf(message, "%d odbiera wiadomosc", pid_self);
-    log_msg(message);
-    msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0);
+    // sprintf(message, "%d wysyla wiadomosc do urzednik", pid_self);
+    // log_msg(message);
+    if (msgsnd(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), 0) == -1)
+        raise(SIGUSR2);
+    // sprintf(message, "%d odbiera wiadomosc", pid_self);
+    // log_msg(message);
+    if (msgrcv(msgid, &msg, sizeof(struct msgbuf_urzednik) - sizeof(long), getpid(), 0) == -1)
+        raise(SIGUSR2);
     if (msg.pid != -1)
     {
         if (!strcmp(msg.mtext, "prosze udac sie do kasy\n"))
@@ -195,12 +194,14 @@ void handle_urzednik(pid_t u_pid)
             log_msg(message);
             sleep(2);
             handle_urzednik(u_pid);
+            return;
         }
         else
         {
             sprintf(message, "%d idzie do urzednika pid=%d", pid_self, msg.pid);
             log_msg(message);
             handle_urzednik(msg.pid);
+            return;
         }
     }
     printf("pid %d otrzymal - %s", pid_self, msg.mtext);
@@ -215,8 +216,9 @@ void *opiekun(void *arg)
     pid_t r_pid = *(pid_t *)arg;
     pid_t u_pid = recieve_rejestr(r_pid);
     if (u_pid == -1)
-        raise(SIGUSR2);
+        pthread_exit(0);
     handle_urzednik(u_pid);
+    return NULL;
 }
 
 void SIGUSR2_handle(int sig)
@@ -232,7 +234,7 @@ void SIGUSR2_handle(int sig)
         i += 10;
     } while (i < 20);
     semop(sems, &V_free, 1);
-    exit(0);
+    _exit(0);
 }
 
 void EMPTY_handle(int sig)

@@ -1,12 +1,10 @@
 #include "common.h"
 
-// TODO: urzędnikom czasami się zamykają kolejki w środku programu
-// TODO: jeśli dyrektor za szybko dostanie SIGINT, nie usuwa struktur systemu V
-// TODO: może generator przepisać, aby moć go dowolnie uruchamiać
-// TODO: ctrl+z i fg przed odczekaniem tk uruchamia program przedwcześnie
+// TODO: TEST weryfikacja ilości petentów
+// TODO: na razie jest 2x tyle procesów co ma być, nie wiem czemu
 
 time_t Tp, Tk;
-int N = 60, K = 20;
+int N = 5, K = 2;
 
 FILE *f;
 time_t t;
@@ -119,16 +117,16 @@ int main(int argc, char **argv)
         cleanup();
         exit(1);
     }
-    arg.val = ILE_PROCESOW;
-    if (semctl(sems, SEMAFOR_START, SETVAL, arg) == -1)
+    arg.val = 1;
+    if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
     {
         perror("dyrektor semctl");
         log_msg("error recieve_main");
         cleanup();
         exit(1);
     }
-    arg.val = 1;
-    if (semctl(sems, SEMAFOR_DYREKTOR, SETVAL, arg) == -1)
+    arg.val = ILE_PROCESOW;
+    if (semctl(sems, SEMAFOR_START, SETVAL, arg) == -1)
     {
         perror("dyrektor semctl");
         log_msg("error recieve_main");
@@ -182,31 +180,23 @@ void cleanup()
     key = ftok(".", 1);
     if (key == -1)
         perror("dyrektor ftok");
-    int semid = semget(key, 0, 0);
+    int semid = semget(key, ILE_SEMAFOROW, 0);
     if (semid != -1)
         semctl(semid, 0, IPC_RMID);
     else
         perror("dyrektor semget");
     int shmid = shmget(key, sizeof(pid_t), 0);
     if (shmid != -1)
-    {
-        pid_t *shared_mem = (pid_t *)shmat(shmid, NULL, 0);
-        if (shmdt(shared_mem) == -1)
-            perror("dyrektor shmdt");
         shmctl(shmid, IPC_RMID, NULL);
-    }
     else
         perror("dyrektor shmid");
-    for (int i = 0; i < ILE_PROCESOW; i++)
-        kill(p_id[i], SIGINT);
     fclose(f);
 }
 
 void SIGINT_handle(int sig)
 {
-    log_msg("dyrektor przechwycil SIGINT"); // asyns-unsafe, używany dużo powoduje ub
     cleanup();
-    exit(0);
+    _exit(0);
 }
 
 void EMPTY_handle(int sig)

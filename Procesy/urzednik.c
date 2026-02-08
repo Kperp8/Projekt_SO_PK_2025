@@ -85,6 +85,8 @@ void SIGUSR1_handle(int sig)
 {
     (void)sig;
     CLOSE_GENTLY = 1;
+    if (typ == 5)
+        _exit(0);
 }
 
 void SIGUSR2_handle(int sig)
@@ -140,7 +142,7 @@ void handle_petent(void)
         if (CLOSE_GENTLY)
         {
             log_msg("urzednik CLOSE_GENTLY");
-
+            // sleep(1); // inaczej ostatni petenci nie są w stanie zdążyć
             while (1)
             {
                 ret = msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 0, IPC_NOWAIT);

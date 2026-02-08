@@ -1,4 +1,5 @@
 #include "common.h"
+#include <pthread.h>
 
 struct sembuf P_start = {.sem_num = SEMAFOR_START, .sem_op = -1, .sem_flg = 0};
 
@@ -20,6 +21,7 @@ int czy_limity_puste();
 char *generate_name();
 char *generate_surname();
 char *generate_age();
+void *reaper_thread(void *arg);
 void log_msg(char *msg);
 
 int main(int argc, char **argv)
@@ -87,6 +89,14 @@ int main(int argc, char **argv)
     sprintf(message, "generator odebral od dyrektora N=%d, p_id[6]=%d, tab[2]=%d, tab[3]=%d", tab[0], tab[1], tab[2], tab[3]);
     log_msg(message);
 
+    pthread_t tid_reaper;
+    if (pthread_create(&tid_reaper, NULL, reaper_thread, NULL) != 0)
+    {
+        perror("generator pthread_create");
+        exit(1);
+    }
+    // nie joinujemy — wątek działa cały czas w tle
+
     printf("generator - generowanie petentow\n");
     generate_petent(tab[0], &tab[1]);
 
@@ -123,6 +133,24 @@ void SIGRTMIN_handle(int sig)
     // niech wywołuje recieve_rejestr()
     // ODEBRAC = 1;
     recieve_rejestr();
+}
+
+void *reaper_thread(void *arg)
+{
+    while (1)
+    {
+        int status;
+        pid_t pid;
+        // czyścimy wszystkie zakończone dzieci bez blokowania
+        while ((pid = waitpid(-1, &status, 0)) > 0)
+        {
+        }
+        // struct timespec ts;
+        // ts.tv_sec = 0;          // sekundy
+        // ts.tv_nsec = 10000000; // nanosekundy (0.01 s) żeby nie obciążać CPU
+        // nanosleep(&ts, NULL);   
+    }
+    return NULL;
 }
 
 int recieve_dyrektor(int sems, pid_t *shared_mem, int result[])
@@ -209,7 +237,7 @@ void generate_petent(int N, pid_t rejestr_pid[])
 
         // Losowo wybieramy jeden PID z puli (główny zawsze jest obecny)
         pid_t pid_to_use = pool[rand() % pool_size];
-        sprintf(message, "generator wysyla petenta do rejestru pid=%d", pid_to_use);
+        // sprintf(message, "generator wysyla petenta do rejestru pid=%d", pid_to_use);
         // log_msg(message);
 
         // Konwertujemy PID na string
@@ -281,7 +309,7 @@ char *generate_surname()
 char *generate_age()
 {
     static char tab[sizeof(int) * 8];
-    int k = rand() % 65 + 7;
+    int k = rand() % 65 + 8;
     sprintf(tab, "%d", k);
     return tab;
 }
