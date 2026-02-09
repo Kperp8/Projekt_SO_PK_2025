@@ -1,10 +1,10 @@
 # Jak uruchomić
 
-Potrzebne:
+**Potrzebne**:
 * Kompilator gcc C11+
 * Make
 
-Należy skompilować program używając polecenia make i uruchomić plik binarny make, znajdując się w folderze nadrzędnym.
+Należy skompilować program używając polecenia make i uruchomić plik binarny main, znajdując się w folderze nadrzędnym projektu (np. ~/PROJEKT_SO_PK_2025 w przypadku klonowania projektu).
 
 Program działa tylko na Linuxie. Testowane na WSL Ubuntu 24.04.3 LTS oraz Ubuntu 25.10
 
@@ -15,8 +15,13 @@ Projekt jest ***symulacją*** działania budynku urzędu miasta Kraków, gdzie u
 
 ## Rodzaje procesów
 
-### `Dyrektor`
+### `Main`
 Proces nadrzędny, który:
+* Uruchamia pozostałe procesy
+* Przesyła pidy procesów do procesu `Dyrektor`
+
+### `Dyrektor`
+Proces podrzędny, który:
 * Definiuje wartości `Tp`, `Tk`, `N`, `K`;
 * Nadzoruje pracę pozostałych procesów;
 * Wysyła `sygnały 1 i 2`;
@@ -71,13 +76,71 @@ Zasady działania **urzędu** ustalone przez `Dyrektora` są następujące:
 * W urzędzie są **3 automaty biletowe**, zawsze działa **min. 1** stanowisko;
 * Jeżeli w kolejce po **bilet** stoi więcej niż `K` petentów (`K` >= `N/3`) uruchamia się **drugi automat biletowy**. Drugi automat zamyka się jeżeli liczba petentów w kolejce jest mniejsza niż `N/3`.
 Jeżeli w kolejkach po bilet stoi więcej niż `2K` **petentów** (`K` >= `N/3`) uruchamia się **trzeci automat biletowy**. Trzeci automat zamyka się jeżeli liczba petentów w kolejkach jest mniejsza niż `2/3*N`;
-* Osoby uprawnione `VIP` (np. honorowy dawca krwi) do gabinetu lekarskiego **wchodzą bez kolejki**;
+* Osoby uprawnione `VIP` do urzędu **wchodzą bez kolejki**;
 * Jeżeli zostaną wyczerpane **limity przyjęć** do danego **urzędnika**, **petenci** ci nie są przyjmowani (nie mogą pobrać **biletu** po wyczerpaniu limitu);
 * Jeżeli zostaną wyczerpane **limity przyjęć** w danym dniu do wszystkich **urzędników**, **petenci nie są wpuszczani** do budynku;
 * Jeśli w chwili zamknięcia urzędu w kolejce do **urzędnika** czekali **petenci** to te osoby **nie zostaną przyjęte** w tym dniu przez **urzędnika**. Dane tych **petentów** (`id` - sprawa do …. – `nr biletu`) powinny zostać zapisane w **raporcie dziennym** (procesy symulujące nieprzyjęte osoby działają jeszcze **2 minuty** po zakończeniu symulacji wypisując komunikat: **„PID - jestem sfrustrowany”**);
 
 Na polecenie `Dyrektora` (`sygnał 1`) dany **urzędnik** obsługuje bieżącego **petenta** i kończy pracę przed **zamknięciem urzędu**. Dane **petentów** (`id` - skierowanie do **urzędnik** - wystawił), którzy nie zostali przyjęci powinny zostać zapisane w **raporcie dziennym**.
 Na polecenie `Dyrektora` (`sygnał 2`) wszyscy **petenci** natychmiast opuszczają budynek.
+
+# Przykłady użycia wywołań systemowych
+W projekcie znajduje się więcej użyć podobnych mechanizmów, ale poniższe przykłady stanowią reprezentatywny przekrój struktury projektu.
+
+## Tworzenie i obsługa plików
+* Każdy proces (z wyjątkami petentów ii urzędników) na początku programu tworzy plik, do którego zapisuje logi z działania programu:
+  * [Otwieranie pliku w main.c](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/main.c#L32C5-L39C33)
+  * [Otwieranie pliku w generator_petent.c](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/generator_petent.c#L30-L42)
+  * [Funkcja zapisująca logi](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/main.c#L268-L274)
+
+## Tworzenie procesów
+* Main.c uruchamia symulację tworząc procesy
+  * [Tworzenie pozostałych procesów w main.c](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/main.c#L111-L175)
+* Generator_petent.c tworzy procesy petent, reprezentujące klientów symuacji
+  * [Tworzenie procesów petent](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/generator_petent.c#L237-L263)
+
+## Tworzenie i obsługa wątków
+* Generator tworzy osobny wątek do usuwania petentów zombie
+  * [Inicjalizacja wątku reaper w generator_petent.c](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/generator_petent.c#L92-L97)
+  * [Funkcja realizowana przez wątek](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/generator_petent.c#L136-L147)
+* Jeśli utworzony petent jest nieletni, tworzy on wątek reprezentujący opiekuna prawnego
+  * [Inicjalizacja wątku opiekun](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/petent.c#L72-L80)
+  * [Funckja realizowana przez wątek](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/petent.c#L199-L207)
+
+## Obsługa sygnałów
+* Dyrektor kończy działanie programu sygnałem SIGUSR1 lub SIGUSR2
+  * [Wysyłanie sygnału SIGUSR1 lub SIGUSR2 do pozostałych procesów](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/dyrektor.c#L162-L164)
+* Większość procesów obsługuje SIGUSR1, SIGUSR2, SIGINT
+  * [Inicjalizacja obsługi sygnałów](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/dyrektor.c#L24-L26)
+  * [Przykład funkcji handler](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/dyrektor.c#L192-L200)
+* Procesy rejestr oraz petent okazjonalnie wysyłają SIGRTMIN; proces generator obsługuje SIGRTMIN
+  * [Wysyłanie sygnału SIGRTMIN](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L914-L919)
+  * [Wysyłanie sygnału SIGRTMIN](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/petent.c#L128-L129)
+  * [Funkcja handler](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/generator_petent.c#L131-L134)
+
+## Synchronizacja procesów
+* Zestaw 7 semaforów stworzony na kluczu z maską 1 steruje większością komunikacji międzyprocesowej
+  * [Definicje kolejności semaforów](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/common.h#L20-L27)
+  * [Synchronizacja przesyłu semaforami](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/main.c#L228-L266)
+  * [Inny przykład](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L961-L1011)
+* Procesy rejestr mają własne zbiory 1 semafora stworzone ze swoim pidem jako maską do chronienia dostępu do licznika czekających petentów
+  * [Deklaracja zbioru](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L360-L368)
+  * [Przykład użycia](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L282-L325)
+
+## Segmenty pamięci dzielonej
+* Segment o rozmiarze pid_t stworzony kluczem z maską 1 służy do przesyłania listy pidów procesów
+  * [Tworzenie segmentu pamięci dzielonej](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/main.c#L60-L77)
+  * [Przykład użycia](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/main.c#L228-L266)
+* Segmenty o rozmiarze long stworzone kluczem ze swoim pidem jako maską służą do zliczania petentów czekających na bilet
+  * [Tworzenie klucza](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L333-L340)
+  * [Tworzenie segmentu](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L398-L405)
+  * [Przykład użycia](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/petent.c#L133-L139)
+
+## Kolejki komunikatów
+* Każdy rejestr oraz urzędnik (za wyjątkiem urzędnika 6, zgodnie ze specyfikacją) obsługuje petentów używając kolejki komunikatów stworzonej kluczem z pidem procesu jako maską
+  * [Tworzenie kolejki](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L390-L396)
+  * [Przkład użycia](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/rejestr.c#L459-L499)
+  * [Inny przykład](https://github.com/Kperp8/Projekt_SO_PK_2025/blob/5ee81abcdeae68a8ecb9765a1f5030bdec8bde00/Procesy/petent.c#L127-L139)
 
 # Raport z testów
 
@@ -251,6 +314,8 @@ Marcin Kowalczyk 49 pid 84151 vip=0
   0x1502195c 28         e          666        1
 ```
 
+* **Po `fg`:** program wraca do pracy.
+
 **Wnioski:**
 
 * Program poprawnie obsługuje zatrzymanie (`SIGTSTP`) i wznowienie (`fg`).
@@ -266,7 +331,33 @@ Marcin Kowalczyk 49 pid 84151 vip=0
 
 ### Wyniki
 
-* Semafory gwarantują, że logicznie pracuje jedynie N petentów, ale zazwyczaj uruchomionych jest więcej (w trakcie wyłączania itp).
+* **`ps` w trakcie działania:**
+```
+  PID TTY          TIME CMD
+  5638 pts/1    00:00:00 bash
+  13602 pts/1    00:00:00 main
+  13603 pts/1    00:00:00 urzednik
+  13604 pts/1    00:00:00 urzednik
+  13605 pts/1    00:00:00 urzednik
+  13606 pts/1    00:00:00 urzednik
+  13607 pts/1    00:00:00 urzednik
+  13608 pts/1    00:00:00 urzednik
+  13609 pts/1    00:00:00 rejestr
+  13610 pts/1    00:00:03 generator_peten
+  13611 pts/1    00:00:00 dyrektor
+  13898 pts/1    00:00:00 petent
+  13921 pts/1    00:00:00 petent
+  13975 pts/1    00:00:00 petent
+  13979 pts/1    00:00:00 petent
+  13986 pts/1    00:00:00 petent
+  14017 pts/1    00:00:00 ps
+```
+
+* Liczba petentów jest stabilna i równa N
+* Program został zatrzymany jeszcze kilka razy z tym samy rezultatem.
+
+**Wnioski**
+* Program poprawnie utrzymuje ilość petentów
 
 ---
 
@@ -557,21 +648,12 @@ PID ... - JESTEM SFRUSTROWANY
 ### Wyniki
 
 ```text
-petentow stworzonych: 855
-petentow przetworzonych: 835
+petentow stworzonych: 25008
+petentow przetworzonych: 25000
 petentow porazek: 0
 uruchomione procesy(powinien być tylko bash i ps):
     PID TTY          TIME CMD
    5853 pts/1    00:00:00 bash
-  10723 pts/1    00:00:00 petent
-  10724 pts/1    00:00:00 petent
-  10853 pts/1    00:00:00 petent
-  10875 pts/1    00:00:00 petent
-  11004 pts/1    00:00:00 petent
-  11014 pts/1    00:00:00 petent
-  11026 pts/1    00:00:00 petent
-  11036 pts/1    00:00:00 petent
-  11038 pts/1    00:00:00 petent
   11064 pts/1    00:00:00 ps
 pozostałe struktury V(powinny być puste):
 
